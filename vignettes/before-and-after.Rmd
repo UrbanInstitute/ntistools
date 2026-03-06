@@ -1,0 +1,333 @@
+---
+title: "Cleaning NTIS Data: Before and After ntistools"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Cleaning NTIS Data: Before and After ntistools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+NTIS data-cleaning scripts tend to repeat the same `case_when()` patterns over
+and over: combining binary indicators, removing sentinels, collapsing Likert
+scales, and so on. **ntistools** replaces each pattern with a single,
+purpose-built function so your scripts are shorter, easier to read, and less
+error-prone.
+
+This vignette walks through each function, showing the verbose "before" code
+alongside the concise "after" equivalent, all using a small synthetic dataset.
+
+## Setup
+
+```{r setup, message = FALSE}
+library(ntistools)
+library(dplyr)
+
+survey <- data.frame(
+  # Binary geographic indicators
+  GeoAreas_Local        = c(1, 0, 0, NA, 0, 1),
+  GeoAreas_MultipleLocal = c(0, 0, 1, NA, 0, 0),
+  GeoAreas_RegionalWithin = c(0, 0, 0, NA, 0, 0),
+
+ # Disruption indicators
+  LLLost  = c(1, 0, 1, NA, 0, 1),
+  LLDelay = c(1, 1, 0, NA, 0, 1),
+  LLStop  = c(0, 0, 0, NA, 0, 1),
+
+  # ProgDem-style column (0 = no, 1 = yes primary, 2 = yes secondary, 98 = NA)
+  ProgDem_Children = c(0, 1, 2, 98, 0, 1),
+  ProgDem_Elders   = c(1, 0, 98, 2, 0, 1),
+
+  # Sentinel values
+  DonImportance = c(3, 1, 98, 2, 98, 4),
+
+  # Flag-based imputation columns
+  PplSrv_NumWait      = c(50, NA, 10, NA, 30, NA),
+  PplSrv_NumWait_NA_X = c(0,   1,  0,  0,  0,  1),
+
+  # Likert scales (1-5, with 97 = N/A)
+  FinanceChng_Benefits = c(1, 2, 3, 4, 5, 97),
+
+ # Parent/child regulation pattern
+  Regulations          = c(1, 0, 97, 1, 0, 1),
+  Regulations_Federal  = c(1, NA, NA, 0, NA, 1),
+  Regulations_State    = c(0, NA, NA, 1, NA, 1),
+
+  # Staff filter columns
+  HaveStaff         = c(1, 1, 0, 1, 0, 1),
+  StaffVacancies    = c(3, 1, 2, 0, 4, 1),
+  BenefitsImpact    = c(2, 3, 1, 4, 2, 3)
+)
+```
+
+## 1. `combine_binary()` --- Grouping binary indicators
+
+Combine several binary (0/1) columns into one using OR logic: 1 if **any** are
+1, NA if **all** are NA, 0 otherwise.
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(
+    GeoAreas_Locally = case_when(
+      GeoAreas_Local == 1 | GeoAreas_MultipleLocal == 1 |
+        GeoAreas_RegionalWithin == 1 ~ 1,
+      is.na(GeoAreas_Local) & is.na(GeoAreas_MultipleLocal) &
+        is.na(GeoAreas_RegionalWithin) ~ NA,
+      .default = 0
+    )
+  )
+
+before %>% select(starts_with("GeoAreas"))
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  combine_binary(GeoAreas_Locally,
+                 GeoAreas_Local, GeoAreas_MultipleLocal,
+                 GeoAreas_RegionalWithin)
+
+after %>% select(starts_with("GeoAreas"))
+```
+
+## 2. `count_binary()` --- Any / count / all from binary indicators
+
+Creates three summary columns (`_any`, `_count`, `_all`) from a set of binary
+columns in a single call.
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(
+    LLDisruption_any = case_when(
+      LLLost == 1 | LLDelay == 1 | LLStop == 1 ~ 1,
+      is.na(LLLost) & is.na(LLDelay) & is.na(LLStop) ~ NA,
+      .default = 0
+    ),
+    LLDisruption_count = case_when(
+      is.na(LLLost) & is.na(LLDelay) & is.na(LLStop) ~ NA_real_,
+      .default = rowSums(across(c(LLLost, LLDelay, LLStop),
+                                ~ . == 1), na.rm = TRUE)
+    ),
+    LLDisruption_all = case_when(
+      LLLost == 1 & LLDelay == 1 & LLStop == 1 ~ 1,
+      is.na(LLLost) & is.na(LLDelay) & is.na(LLStop) ~ NA,
+      .default = 0
+    )
+  )
+
+before %>% select(starts_with("LL"))
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  count_binary("LLDisruption", LLLost, LLDelay, LLStop)
+
+after %>% select(starts_with("LL"))
+```
+
+## 3. `recode_binary()` --- Collapse multi-level to 0/1
+
+Recode columns where 0 = no, 1 & 2 = yes, and 98 = NA.
+
+### Before
+
+```{r}
+recode_progdem <- function(x) {
+  case_when(
+    x == 0 ~ 0, x == 1 ~ 1, x == 2 ~ 1,
+    x == 98 ~ NA_real_, TRUE ~ NA_real_
+  )
+}
+
+before <- survey %>%
+  mutate(across(c(ProgDem_Children, ProgDem_Elders),
+                recode_progdem))
+
+before %>% select(starts_with("ProgDem"))
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  recode_binary(c("ProgDem_Children", "ProgDem_Elders"))
+
+after %>% select(starts_with("ProgDem"))
+```
+
+## 4. `recode_sentinel()` --- Remove 98s
+
+Replace sentinel values (e.g., 98 = "don't know") with NA.
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(across(
+    all_of("DonImportance"),
+    ~ case_when(. == 98 ~ NA, TRUE ~ .)
+  ))
+
+before %>% select(DonImportance)
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  recode_sentinel("DonImportance")
+
+after %>% select(DonImportance)
+```
+
+## 5. `impute_from_flag()` --- Fill NA when a flag says "skip was valid"
+
+When a respondent legitimately skipped a numeric question, the value is NA but a
+companion flag column (e.g., `_NA_X`) is 1. Replace those NAs with 0.
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(
+    PplSrv_NumWait = case_when(
+      PplSrv_NumWait_NA_X == 1 & is.na(PplSrv_NumWait) ~ 0,
+      .default = PplSrv_NumWait
+    )
+  )
+
+before %>% select(starts_with("PplSrv"))
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  impute_from_flag("PplSrv_NumWait")
+
+after %>% select(starts_with("PplSrv"))
+```
+
+## 6. `collapse_likert()` --- Likert 5-point to 3-point
+
+Collapse a 5-point Likert scale (1--5) into 3 categories (1 = low, 2 = mid,
+3 = high), with 97 set to NA.
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(
+    FinanceChng_Benefits = case_match(
+      FinanceChng_Benefits,
+      1 ~ 1, 2 ~ 1, 3 ~ 2, 4 ~ 3, 5 ~ 3, 97 ~ NA
+    )
+  )
+
+before %>% select(FinanceChng_Benefits)
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  collapse_likert("FinanceChng_Benefits")
+
+after %>% select(FinanceChng_Benefits)
+```
+
+## 7. `propagate_parent()` --- Push parent value to children
+
+When a parent question (e.g., `Regulations`) is 0 ("no") or 97 ("N/A"),
+propagate that value to all follow-up child columns.
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(across(
+    c(Regulations_Federal, Regulations_State),
+    ~ case_when(
+      Regulations == 0 ~ 0,
+      Regulations == 97 ~ 97,
+      TRUE ~ .
+    )
+  ))
+
+before %>% select(starts_with("Regulations"))
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  propagate_parent(c("Regulations_Federal", "Regulations_State"),
+                   parent_var = "Regulations")
+
+after %>% select(starts_with("Regulations"))
+```
+
+## 8. `apply_filter()` --- Zero-out variables for ineligible respondents
+
+Set variables to NA for organizations that don't meet a condition (e.g., no
+paid staff).
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(across(
+    c(StaffVacancies, BenefitsImpact),
+    ~ case_when(HaveStaff == 1 ~ ., .default = NA)
+  ))
+
+before %>% select(HaveStaff, StaffVacancies, BenefitsImpact)
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  apply_filter(c("StaffVacancies", "BenefitsImpact"),
+               condition = HaveStaff == 1)
+
+after %>% select(HaveStaff, StaffVacancies, BenefitsImpact)
+```
+
+## Putting it all together
+
+In a real script, you can chain multiple ntistools calls in a single pipeline:
+
+```{r}
+cleaned <- survey %>%
+  combine_binary(GeoAreas_Locally,
+                 GeoAreas_Local, GeoAreas_MultipleLocal,
+                 GeoAreas_RegionalWithin) %>%
+  count_binary("LLDisruption", LLLost, LLDelay, LLStop) %>%
+  recode_binary(c("ProgDem_Children", "ProgDem_Elders")) %>%
+  recode_sentinel("DonImportance") %>%
+  impute_from_flag("PplSrv_NumWait") %>%
+  collapse_likert("FinanceChng_Benefits") %>%
+  propagate_parent(c("Regulations_Federal", "Regulations_State"),
+                   parent_var = "Regulations") %>%
+  apply_filter(c("StaffVacancies", "BenefitsImpact"),
+               condition = HaveStaff == 1)
+
+glimpse(cleaned)
+```
+
+What used to be hundreds of lines of repetitive `case_when()` calls becomes a
+single, readable pipeline.
