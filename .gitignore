@@ -47,3 +47,11 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Raw data / PII - never commit survey microdata
+data-raw/
+*.csv
+*.xlsx
+*.sav
+*.dta
+*.sas7bdat
