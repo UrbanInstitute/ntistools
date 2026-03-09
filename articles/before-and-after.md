@@ -1,63 +1,99 @@
 # Cleaning NTIS Data: Before and After ntistools
 
+## Why ntistools?
+
 NTIS data-cleaning scripts tend to repeat the same
 [`case_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html)
 patterns over and over: combining binary indicators, removing sentinels,
-collapsing Likert scales, and so on. **ntistools** replaces each pattern
-with a single, purpose-built function so your scripts are shorter,
-easier to read, and less error-prone.
+collapsing Likert scales, labeling columns, and so on. A typical script
+might contain 20+ blocks of nearly identical code like this:
 
-This vignette walks through each function, showing the verbose “before”
-code alongside the concise “after” equivalent, all using a small
-synthetic dataset.
+``` r
+# This same pattern, repeated for every binary variable...
+ProgDem_Veterans = case_when(
+  ProgDem_Veterans == 1 ~ "Serving veterans",
+  ProgDem_Veterans == 0 ~ "Not serving veterans",
+  .default = NA_character_
+)
+```
+
+**ntistools** replaces each pattern with a single, purpose-built
+function so your scripts are shorter, easier to read, and less
+error-prone. This vignette walks through each function, showing the
+verbose “before” code alongside the concise “after” equivalent, all
+using a small synthetic dataset.
 
 ## Setup
+
+We start by creating a synthetic dataset that mimics the structure of
+real NTIS survey data. Each column represents a common pattern you’ll
+encounter:
 
 ``` r
 library(ntistools)
 library(dplyr)
 
 survey <- data.frame(
-  # Binary geographic indicators
-  GeoAreas_Local        = c(1, 0, 0, NA, 0, 1),
-  GeoAreas_MultipleLocal = c(0, 0, 1, NA, 0, 0),
+  # Binary geographic indicators (0 = no, 1 = yes)
+  GeoAreas_Local          = c(1, 0, 0, NA, 0, 1),
+  GeoAreas_MultipleLocal  = c(0, 0, 1, NA, 0, 0),
   GeoAreas_RegionalWithin = c(0, 0, 0, NA, 0, 0),
+  GeoAreas_MultipleState  = c(0, NA, 1, NA, 0, 0),
+  GeoAreas_RegionalAcross = c(0, NA, 0, NA, 0, 1),
 
- # Disruption indicators
+  # Disruption indicators (0 = no, 1 = yes)
   LLLost  = c(1, 0, 1, NA, 0, 1),
   LLDelay = c(1, 1, 0, NA, 0, 1),
   LLStop  = c(0, 0, 0, NA, 0, 1),
 
-  # ProgDem-style column (0 = no, 1 = yes primary, 2 = yes secondary, 98 = NA)
+  # ProgDem-style columns (0 = no, 1 = yes primary, 2 = yes secondary, 98 = NA)
   ProgDem_Children = c(0, 1, 2, 98, 0, 1),
   ProgDem_Elders   = c(1, 0, 98, 2, 0, 1),
 
-  # Sentinel values
+  # Sentinel values (98 = "don't know")
   DonImportance = c(3, 1, 98, 2, 98, 4),
 
   # Flag-based imputation columns
+  # PplSrv_NumWait_NA_X = 1 means "respondent confirmed they had zero people
+  # waiting", so NA should be replaced with 0
   PplSrv_NumWait      = c(50, NA, 10, NA, 30, NA),
   PplSrv_NumWait_NA_X = c(0,   1,  0,  0,  0,  1),
 
-  # Likert scales (1-5, with 97 = N/A)
-  FinanceChng_Benefits = c(1, 2, 3, 4, 5, 97),
+  # Imputation with year-suffixed variable names
+  # The variable has a year suffix but the flag column does not
+  Staff_RegVlntr_2023 = c(NA, 5,  NA, 10, NA, 3),
+  Staff_RegVlntr_2024 = c(2,  NA, NA, 7,  NA, 4),
+  Staff_RegVlntr_NA   = c(1,  0,  0,  0,  1,  0),
 
- # Parent/child regulation pattern
-  Regulations          = c(1, 0, 97, 1, 0, 1),
-  Regulations_Federal  = c(1, NA, NA, 0, NA, 1),
-  Regulations_State    = c(0, NA, NA, 1, NA, 1),
+  # Likert scales (1-5, with 97 = "not applicable")
+  FinanceChng_Benefits  = c(1, 2, 3, 4, 5, 97),
+  FinanceChng_Salaries  = c(5, 4, 3, 2, 1, 97),
+  FinanceChng_TotExp    = c(2, 3, 97, 5, 1, 4),
+
+  # Finance change indicators (1 = yes, 0 = no, 97 = not applicable)
+  FinanceChng_Reserves = c(1, 0, 97, 1, 0, 1),
+  PrgSrvc_Suspend      = c(1, 0, 97, 1, 0, 0),
+
+  # Parent/child regulation pattern
+  Regulations         = c(1, 0, 97, 1, 0, 1),
+  Regulations_Federal = c(1, NA, NA, 0, NA, 1),
+  Regulations_State   = c(0, NA, NA, 1, NA, 1),
 
   # Staff filter columns
-  HaveStaff         = c(1, 1, 0, 1, 0, 1),
-  StaffVacancies    = c(3, 1, 2, 0, 4, 1),
-  BenefitsImpact    = c(2, 3, 1, 4, 2, 3)
+  HaveStaff      = c(1, 1, 0, 1, 0, 1),
+  StaffVacancies = c(3, 1, 2, 0, 4, 1),
+  BenefitsImpact = c(2, 3, 1, 4, 2, 3)
 )
 ```
 
+------------------------------------------------------------------------
+
 ## 1. `combine_binary()` — Grouping binary indicators
 
-Combine several binary (0/1) columns into one using OR logic: 1 if
-**any** are 1, NA if **all** are NA, 0 otherwise.
+**The problem:** You have several related 0/1 columns and need a single
+column that is 1 if **any** of them are 1. For example, in the NTIS
+extraction script, `GeoAreas_Local`, `GeoAreas_MultipleLocal`, and
+`GeoAreas_RegionalWithin` are combined into `GeoAreas_ServedLocal`.
 
 ### Before
 
@@ -73,21 +109,22 @@ before <- survey %>%
     )
   )
 
-before %>% select(starts_with("GeoAreas"))
-#>   GeoAreas_Local GeoAreas_MultipleLocal GeoAreas_RegionalWithin
-#> 1              1                      0                       0
-#> 2              0                      0                       0
-#> 3              0                      1                       0
-#> 4             NA                     NA                      NA
-#> 5              0                      0                       0
-#> 6              1                      0                       0
-#>   GeoAreas_Locally
-#> 1                1
-#> 2                0
-#> 3                1
-#> 4               NA
-#> 5                0
-#> 6                1
+before %>% select(starts_with("GeoAreas_L"), GeoAreas_MultipleLocal,
+                  GeoAreas_RegionalWithin)
+#>   GeoAreas_Local GeoAreas_Locally GeoAreas_MultipleLocal
+#> 1              1                1                      0
+#> 2              0                0                      0
+#> 3              0                1                      1
+#> 4             NA               NA                     NA
+#> 5              0                0                      0
+#> 6              1                1                      0
+#>   GeoAreas_RegionalWithin
+#> 1                       0
+#> 2                       0
+#> 3                       0
+#> 4                      NA
+#> 5                       0
+#> 6                       0
 ```
 
 ### After
@@ -98,27 +135,78 @@ after <- survey %>%
                  GeoAreas_Local, GeoAreas_MultipleLocal,
                  GeoAreas_RegionalWithin)
 
-after %>% select(starts_with("GeoAreas"))
-#>   GeoAreas_Local GeoAreas_MultipleLocal GeoAreas_RegionalWithin
-#> 1              1                      0                       0
-#> 2              0                      0                       0
-#> 3              0                      1                       0
-#> 4             NA                     NA                      NA
-#> 5              0                      0                       0
-#> 6              1                      0                       0
-#>   GeoAreas_Locally
-#> 1                1
-#> 2                0
-#> 3                1
-#> 4               NA
-#> 5                0
-#> 6                1
+after %>% select(starts_with("GeoAreas_L"), GeoAreas_MultipleLocal,
+                 GeoAreas_RegionalWithin)
+#>   GeoAreas_Local GeoAreas_Locally GeoAreas_MultipleLocal
+#> 1              1                1                      0
+#> 2              0                0                      0
+#> 3              0                1                      1
+#> 4             NA               NA                     NA
+#> 5              0                0                      0
+#> 6              1                1                      0
+#>   GeoAreas_RegionalWithin
+#> 1                       0
+#> 2                       0
+#> 3                       0
+#> 4                      NA
+#> 5                       0
+#> 6                       0
 ```
+
+### Option: `strict_na` for stricter NA handling
+
+By default,
+[`combine_binary()`](https://urbaninstitute.github.io/ntistools/reference/combine_binary.md)
+only returns NA when **all** source columns are NA. If a row has
+`c(0, NA)`, the result is 0.
+
+Sometimes you need stricter behavior: if **any** source is NA (and none
+are 1), the result should be NA. This matches the `binary_flag()`
+function used in older NTIS scripts. Set `strict_na = TRUE` to get this
+behavior.
+
+``` r
+# Data where one source is 0 and the other is NA
+strict_example <- data.frame(
+  a = c(0,  1,  NA, 0),
+  b = c(NA, NA, NA, 0)
+)
+
+# Default: lenient (0 + NA = 0)
+combine_binary(strict_example, result_lenient, a, b) %>%
+  select(a, b, result_lenient)
+#>    a  b result_lenient
+#> 1  0 NA              0
+#> 2  1 NA              1
+#> 3 NA NA             NA
+#> 4  0  0              0
+
+# Strict: any NA poisons the result (0 + NA = NA), unless a 1 is present
+combine_binary(strict_example, result_strict, a, b, strict_na = TRUE) %>%
+  select(a, b, result_strict)
+#>    a  b result_strict
+#> 1  0 NA            NA
+#> 2  1 NA             1
+#> 3 NA NA            NA
+#> 4  0  0             0
+```
+
+**When to use `strict_na = TRUE`:** Use it when a missing value means
+you genuinely don’t know if the respondent would have answered “yes.” In
+the NTIS extraction script, the `GeoAreas_ServedLocal` and
+`GeoAreas_Servedmultistate` variables use strict mode.
+
+------------------------------------------------------------------------
 
 ## 2. `count_binary()` — Any / count / all from binary indicators
 
-Creates three summary columns (`_any`, `_count`, `_all`) from a set of
-binary columns in a single call.
+Creates three summary columns at once from a set of binary columns:
+
+- `{prefix}_any`: 1 if **any** source is 1
+- `{prefix}_count`: how many sources are 1
+- `{prefix}_all`: 1 if **every** source is 1
+
+All three are NA when every source column is NA.
 
 ### Before
 
@@ -168,9 +256,20 @@ after %>% select(starts_with("LL"))
 #> 6      1       1      1                1                  3                1
 ```
 
+**Tip:** If you only need the `_any` column (not `_count` or `_all`),
+use
+[`combine_binary()`](https://urbaninstitute.github.io/ntistools/reference/combine_binary.md)
+instead — it creates a single column and lets you name it whatever you
+want.
+
+------------------------------------------------------------------------
+
 ## 3. `recode_binary()` — Collapse multi-level to 0/1
 
-Recode columns where 0 = no, 1 & 2 = yes, and 98 = NA.
+**The problem:** NTIS demographic columns use 0 = “no”, 1 = “yes
+(primary)”, 2 = “yes (secondary)”, and 98 = “don’t know.” You need to
+collapse these to simple 0/1. In the extraction script, all `ProgDem_`
+columns go through this step.
 
 ### Before
 
@@ -212,9 +311,29 @@ after %>% select(starts_with("ProgDem"))
 #> 6                1              1
 ```
 
-## 4. `recode_sentinel()` — Remove 98s
+### Customizing value mappings
 
-Replace sentinel values (e.g., 98 = “don’t know”) with NA.
+The defaults (`ones = c(1, 2)`, `zeros = 0`, `na_values = 98`) work for
+`ProgDem_` columns, but you can customize them for other patterns:
+
+``` r
+# Example: a column where 1-3 mean "yes" and 4-5 mean "no"
+custom_example <- data.frame(rating = c(1, 2, 3, 4, 5, 98))
+
+recode_binary(custom_example, "rating",
+              ones = c(1, 2, 3),
+              zeros = c(4, 5),
+              na_values = 98) %>%
+  pull(rating)
+#> [1]  1  1  1  0  0 NA
+```
+
+------------------------------------------------------------------------
+
+## 4. `recode_sentinel()` — Remove sentinel values
+
+Replace survey sentinel values (e.g., 98 = “don’t know”) with `NA`. The
+extraction script removes 98s from dozens of columns before analysis.
 
 ### Before
 
@@ -251,11 +370,35 @@ after %>% select(DonImportance)
 #> 6             4
 ```
 
+### Removing different sentinel values
+
+By default,
+[`recode_sentinel()`](https://urbaninstitute.github.io/ntistools/reference/recode_sentinel.md)
+removes 98. You can change which values to remove:
+
+``` r
+# Remove both 97 and 98
+survey %>%
+  recode_sentinel("DonImportance", values = c(97, 98)) %>%
+  select(DonImportance)
+#>   DonImportance
+#> 1             3
+#> 2             1
+#> 3            NA
+#> 4             2
+#> 5            NA
+#> 6             4
+```
+
+------------------------------------------------------------------------
+
 ## 5. `impute_from_flag()` — Fill NA when a flag says “skip was valid”
 
-When a respondent legitimately skipped a numeric question, the value is
-NA but a companion flag column (e.g., `_NA_X`) is 1. Replace those NAs
-with 0.
+**The problem:** When a respondent legitimately skipped a numeric
+question (e.g., “How many people are on your waitlist?” when they have
+no waitlist), the value is `NA` but a companion flag column (e.g.,
+`PplSrv_NumWait_NA_X`) is set to 1. These NAs should be replaced with 0
+(not left as missing data).
 
 ### Before
 
@@ -294,10 +437,79 @@ after %>% select(starts_with("PplSrv"))
 #> 6              0                   1
 ```
 
+### Option: `flag_map` for non-standard flag column names
+
+Sometimes the variable name includes a year suffix (e.g.,
+`Staff_RegVlntr_2023`) but the flag column does not (e.g.,
+`Staff_RegVlntr_NA`). The default `paste0(var, flag_suffix)` logic would
+look for `Staff_RegVlntr_2023_NA_X`, which doesn’t exist.
+
+Use `flag_map` to tell the function exactly which flag column to use for
+each variable:
+
+``` r
+# Before: six separate case_when blocks in the extraction script
+before <- survey %>%
+  mutate(
+    Staff_RegVlntr_2023 = case_when(
+      is.na(Staff_RegVlntr_2023) & Staff_RegVlntr_NA == 1 ~ 0,
+      .default = Staff_RegVlntr_2023
+    ),
+    Staff_RegVlntr_2024 = case_when(
+      is.na(Staff_RegVlntr_2024) & Staff_RegVlntr_NA == 1 ~ 0,
+      .default = Staff_RegVlntr_2024
+    )
+  )
+
+before %>% select(starts_with("Staff_RegVlntr"))
+#>   Staff_RegVlntr_2023 Staff_RegVlntr_2024 Staff_RegVlntr_NA
+#> 1                   0                   2                 1
+#> 2                   5                  NA                 0
+#> 3                  NA                  NA                 0
+#> 4                  10                   7                 0
+#> 5                   0                   0                 1
+#> 6                   3                   4                 0
+```
+
+``` r
+# After: one call handles both year columns
+after <- survey %>%
+  impute_from_flag(
+    vars = c("Staff_RegVlntr_2023", "Staff_RegVlntr_2024"),
+    flag_map = c(Staff_RegVlntr_2023 = "Staff_RegVlntr_NA",
+                 Staff_RegVlntr_2024 = "Staff_RegVlntr_NA")
+  )
+
+after %>% select(starts_with("Staff_RegVlntr"))
+#>   Staff_RegVlntr_2023 Staff_RegVlntr_2024 Staff_RegVlntr_NA
+#> 1                   0                   2                 1
+#> 2                   5                  NA                 0
+#> 3                  NA                  NA                 0
+#> 4                  10                   7                 0
+#> 5                   0                   0                 1
+#> 6                   3                   4                 0
+```
+
+**Tip:** You can mix `flag_map` and the default suffix in the same call.
+Variables listed in `flag_map` use their mapped flag; all others fall
+back to `paste0(var, flag_suffix)`.
+
+------------------------------------------------------------------------
+
 ## 6. `collapse_likert()` — Likert 5-point to 3-point
 
 Collapse a 5-point Likert scale (1–5) into 3 categories (1 = low, 2 =
-mid, 3 = high), with 97 set to NA.
+mid, 3 = high), with 97 set to NA. The default
+`mapping = c(1, 1, 2, 3, 3)` means:
+
+| Original | Maps to | Meaning                             |
+|:--------:|:-------:|-------------------------------------|
+|    1     |    1    | Low (e.g., “Significant decrease”)  |
+|    2     |    1    | Low (e.g., “Some decrease”)         |
+|    3     |    2    | Mid (e.g., “No change”)             |
+|    4     |    3    | High (e.g., “Some increase”)        |
+|    5     |    3    | High (e.g., “Significant increase”) |
+|    97    |   NA    | Not applicable                      |
 
 ### Before
 
@@ -341,10 +553,35 @@ after %>% select(FinanceChng_Benefits)
 #> 6                   NA
 ```
 
+### Applying to multiple columns at once
+
+In the extraction script, many Likert columns are collapsed using the
+same mapping. Pass a character vector of column names:
+
+``` r
+likert_cols <- c("FinanceChng_Benefits", "FinanceChng_Salaries",
+                 "FinanceChng_TotExp")
+
+after <- survey %>%
+  collapse_likert(likert_cols)
+
+after %>% select(all_of(likert_cols))
+#>   FinanceChng_Benefits FinanceChng_Salaries FinanceChng_TotExp
+#> 1                    1                    3                  1
+#> 2                    1                    3                  2
+#> 3                    2                    2                 NA
+#> 4                    3                    1                  3
+#> 5                    3                    1                  1
+#> 6                   NA                   NA                  3
+```
+
+------------------------------------------------------------------------
+
 ## 7. `propagate_parent()` — Push parent value to children
 
-When a parent question (e.g., `Regulations`) is 0 (“no”) or 97 (“N/A”),
-propagate that value to all follow-up child columns.
+When a parent question (e.g., “Does your organization face government
+regulations?”) is 0 (“no”) or 97 (“N/A”), the follow-up questions should
+inherit that value instead of being left as NA.
 
 ### Before
 
@@ -386,10 +623,35 @@ after %>% select(starts_with("Regulations"))
 #> 6           1                   1                 1
 ```
 
-## 8. `apply_filter()` — Zero-out variables for ineligible respondents
+### Customizing which parent values propagate
 
-Set variables to NA for organizations that don’t meet a condition (e.g.,
-no paid staff).
+By default, `values = c(0, 97)` (both “no” and “not applicable”
+propagate). You can change this:
+
+``` r
+# Only propagate 0 (not 97)
+survey %>%
+  propagate_parent(c("Regulations_Federal", "Regulations_State"),
+                   parent_var = "Regulations",
+                   values = 0) %>%
+  select(starts_with("Regulations"))
+#>   Regulations Regulations_Federal Regulations_State
+#> 1           1                   1                 0
+#> 2           0                   0                 0
+#> 3          97                  NA                NA
+#> 4           1                   0                 1
+#> 5           0                   0                 0
+#> 6           1                   1                 1
+```
+
+------------------------------------------------------------------------
+
+## 8. `apply_filter()` — Set variables to NA for ineligible respondents
+
+**The problem:** Some survey questions only apply to certain
+organizations. For example, questions about staff vacancies and benefits
+only make sense for organizations that have paid staff. For orgs without
+staff, these values should be set to NA so they don’t affect analysis.
 
 ### Before
 
@@ -427,36 +689,49 @@ after %>% select(HaveStaff, StaffVacancies, BenefitsImpact)
 #> 6         1              1              3
 ```
 
+**Tip:** The `condition` argument accepts any expression you could use
+in
+[`dplyr::filter()`](https://dplyr.tidyverse.org/reference/filter.html).
+For example, `condition = HaveStaff == 1 & year == "2024"` would only
+keep values for orgs with staff in 2024.
+
+------------------------------------------------------------------------
+
 ## 9. `label_binary()` — Convert 0/1 to descriptive labels
 
-Turn binary indicators into human-readable strings. Values in
-`na_values` (e.g., 97) map to the false label.
+**The problem:** After recoding to 0/1, you often need to convert
+columns to descriptive strings for reporting. The NTIS extraction script
+has 25+ blocks of identical
+[`case_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html)
+code like this, one per variable.
+[`label_binary()`](https://urbaninstitute.github.io/ntistools/reference/label_binary.md)
+replaces all of them in a single call.
 
 ### Before
 
 ``` r
 before <- survey %>%
   mutate(
-    GeoAreas_Local = case_when(
-      GeoAreas_Local == 1 ~ "Serving local areas",
-      GeoAreas_Local == 0 ~ "Not serving local areas",
+    FinanceChng_Reserves = case_when(
+      FinanceChng_Reserves == 1 ~ "Drew on cash reserves",
+      FinanceChng_Reserves %in% c(0, 97) ~ "Did not draw on cash reserves",
       .default = NA_character_
     ),
-    FinanceChng_Benefits = case_when(
-      FinanceChng_Benefits == 1 ~ "Benefits changed",
-      FinanceChng_Benefits %in% c(0, 97) ~ "Benefits did not change",
+    PrgSrvc_Suspend = case_when(
+      PrgSrvc_Suspend == 1 ~ "Paused or suspended services",
+      PrgSrvc_Suspend %in% c(0, 97) ~ "Did not pause or suspend services",
       .default = NA_character_
     )
   )
 
-before %>% select(GeoAreas_Local, FinanceChng_Benefits)
-#>            GeoAreas_Local    FinanceChng_Benefits
-#> 1     Serving local areas        Benefits changed
-#> 2 Not serving local areas                    <NA>
-#> 3 Not serving local areas                    <NA>
-#> 4                    <NA>                    <NA>
-#> 5 Not serving local areas                    <NA>
-#> 6     Serving local areas Benefits did not change
+before %>% select(FinanceChng_Reserves, PrgSrvc_Suspend)
+#>            FinanceChng_Reserves                   PrgSrvc_Suspend
+#> 1         Drew on cash reserves      Paused or suspended services
+#> 2 Did not draw on cash reserves Did not pause or suspend services
+#> 3 Did not draw on cash reserves Did not pause or suspend services
+#> 4         Drew on cash reserves      Paused or suspended services
+#> 5 Did not draw on cash reserves Did not pause or suspend services
+#> 6         Drew on cash reserves Did not pause or suspend services
 ```
 
 ### After
@@ -465,29 +740,130 @@ before %>% select(GeoAreas_Local, FinanceChng_Benefits)
 after <- survey %>%
   label_binary(
     labels = list(
-      GeoAreas_Local = c("Serving local areas", "Not serving local areas"),
-      FinanceChng_Benefits = c("Benefits changed", "Benefits did not change")
+      FinanceChng_Reserves = c("Drew on cash reserves",
+                               "Did not draw on cash reserves"),
+      PrgSrvc_Suspend = c("Paused or suspended services",
+                          "Did not pause or suspend services")
     ),
     na_values = 97
   )
 
-after %>% select(GeoAreas_Local, FinanceChng_Benefits)
-#>            GeoAreas_Local    FinanceChng_Benefits
-#> 1     Serving local areas        Benefits changed
-#> 2 Not serving local areas                    <NA>
-#> 3 Not serving local areas                    <NA>
-#> 4                    <NA>                    <NA>
-#> 5 Not serving local areas                    <NA>
-#> 6     Serving local areas Benefits did not change
+after %>% select(FinanceChng_Reserves, PrgSrvc_Suspend)
+#>            FinanceChng_Reserves                   PrgSrvc_Suspend
+#> 1         Drew on cash reserves      Paused or suspended services
+#> 2 Did not draw on cash reserves Did not pause or suspend services
+#> 3 Did not draw on cash reserves Did not pause or suspend services
+#> 4         Drew on cash reserves      Paused or suspended services
+#> 5 Did not draw on cash reserves Did not pause or suspend services
+#> 6         Drew on cash reserves Did not pause or suspend services
 ```
 
-## 10. `label_likert()` — Label collapsed Likert scales
+### How `labels` works
 
-Map numeric Likert-scale values to descriptive strings. Uses the same
-`mapping` vector approach as
+The `labels` argument is a named list. Each name is a column in your
+data, and each value is a length-2 character vector:
+`c("label when 1", "label when 0")`.
+
+### Option: `na_values` for sentinel-as-false
+
+Some NTIS variables treat 97 (“not applicable”) the same as 0 (“no”).
+For example, if an organization answered “not applicable” to whether
+they drew on cash reserves, that effectively means they did not. Set
+`na_values = 97` to map 97 to the false (second) label instead of to
+`NA`.
+
+``` r
+# Without na_values: 97 becomes NA
+survey %>%
+  label_binary(
+    labels = list(FinanceChng_Reserves = c("Drew", "Did not draw"))
+  ) %>%
+  select(FinanceChng_Reserves)
+#>   FinanceChng_Reserves
+#> 1                 Drew
+#> 2         Did not draw
+#> 3                 <NA>
+#> 4                 Drew
+#> 5         Did not draw
+#> 6                 Drew
+
+# With na_values = 97: 97 maps to the false label
+survey %>%
+  label_binary(
+    labels = list(FinanceChng_Reserves = c("Drew", "Did not draw")),
+    na_values = 97
+  ) %>%
+  select(FinanceChng_Reserves)
+#>   FinanceChng_Reserves
+#> 1                 Drew
+#> 2         Did not draw
+#> 3         Did not draw
+#> 4                 Drew
+#> 5         Did not draw
+#> 6                 Drew
+```
+
+### Labeling many columns at once
+
+In the extraction script, 16 `ProgDem_` columns are each labeled with a
+“Serving…” / “Not serving…” pair. You can handle them all in one call:
+
+``` r
+# First recode to 0/1 (2 = secondary yes), then label
+after <- survey %>%
+  recode_binary(c("ProgDem_Children", "ProgDem_Elders")) %>%
+  label_binary(labels = list(
+    ProgDem_Children = c("Serving children and youth",
+                         "Not serving children and youth"),
+    ProgDem_Elders   = c("Serving seniors",
+                         "Not serving seniors")
+  ))
+
+after %>% select(starts_with("ProgDem"))
+#>                 ProgDem_Children      ProgDem_Elders
+#> 1 Not serving children and youth     Serving seniors
+#> 2     Serving children and youth Not serving seniors
+#> 3     Serving children and youth                <NA>
+#> 4                           <NA>     Serving seniors
+#> 5 Not serving children and youth Not serving seniors
+#> 6     Serving children and youth     Serving seniors
+```
+
+### Option: custom `true_values` and `false_values`
+
+For variables that don’t use the standard 0/1 coding:
+
+``` r
+# A column where 1,2 = "yes" and 3,4,5 = "no"
+age_example <- data.frame(Dem_BChair_Age = c(1, 2, 3, 5, 97, NA))
+
+label_binary(age_example,
+  labels = list(Dem_BChair_Age = c("Under 35", "35 or older")),
+  true_values = c(1, 2),
+  false_values = c(3, 4, 5, 6, 7, 8, 9),
+  na_values = 97
+) %>%
+  pull(Dem_BChair_Age)
+#> [1] "Under 35"    "Under 35"    "35 or older" "35 or older" "35 or older"
+#> [6] NA
+```
+
+------------------------------------------------------------------------
+
+## 10. `label_likert()` — Label Likert scales with descriptive strings
+
+**The problem:** After (or instead of) collapsing Likert values to
+integers, you need descriptive string labels for reporting. The
+extraction script has 8+
+[`across()`](https://dplyr.tidyverse.org/reference/across.html) blocks
+doing this for different column groups, each with slightly different
+labels.
+
+[`label_likert()`](https://urbaninstitute.github.io/ntistools/reference/label_likert.md)
+uses the same `mapping` vector approach as
 [`collapse_likert()`](https://urbaninstitute.github.io/ntistools/reference/collapse_likert.md),
-then indexes into labels. Values in `na_values` get `na_label` (default
-`"Unsure"`).
+then looks up the corresponding label. Values in `na_values` get
+`na_label` (default `"Unsure"`) instead of `NA`.
 
 ### Before
 
@@ -530,48 +906,167 @@ after %>% select(FinanceChng_Benefits)
 #> 6               Unsure
 ```
 
+### Applying different labels to different column groups
+
+The extraction script uses
+[`label_likert()`](https://urbaninstitute.github.io/ntistools/reference/label_likert.md)
+for several groups of columns, each with different label text. You can
+chain multiple calls:
+
+``` r
+after <- survey %>%
+  label_likert("FinanceChng_Benefits",
+               labels = c("Decrease", "No change", "Increase")) %>%
+  label_likert("FinanceChng_Salaries",
+               labels = c("Decrease in salaries", "No change",
+                          "Increase in salaries")) %>%
+  label_likert("FinanceChng_TotExp",
+               labels = c("Decrease in expenses", "No change",
+                          "Increase in expenses"))
+
+after %>% select(starts_with("FinanceChng"))
+#>   FinanceChng_Benefits FinanceChng_Salaries   FinanceChng_TotExp
+#> 1             Decrease Increase in salaries Decrease in expenses
+#> 2             Decrease Increase in salaries            No change
+#> 3            No change            No change               Unsure
+#> 4             Increase Decrease in salaries Increase in expenses
+#> 5             Increase Decrease in salaries Decrease in expenses
+#> 6               Unsure               Unsure Increase in expenses
+#>   FinanceChng_Reserves
+#> 1                    1
+#> 2                    0
+#> 3                   97
+#> 4                    1
+#> 5                    0
+#> 6                    1
+```
+
+### Option: custom `na_label`
+
+The default `na_label` is `"Unsure"`, but you can change it:
+
+``` r
+survey %>%
+  label_likert("FinanceChng_Benefits",
+               labels = c("Decrease", "No change", "Increase"),
+               na_label = "Not applicable") %>%
+  select(FinanceChng_Benefits)
+#>   FinanceChng_Benefits
+#> 1             Decrease
+#> 2             Decrease
+#> 3            No change
+#> 4             Increase
+#> 5             Increase
+#> 6       Not applicable
+```
+
+### Option: custom `mapping`
+
+The default `mapping = c(1, 1, 2, 3, 3)` collapses a 5-point scale into
+3 categories. You can provide a different mapping if your scale is
+different:
+
+``` r
+# 3-point scale: keep each value as its own category
+three_point <- data.frame(satisfaction = c(1, 2, 3, 97))
+
+label_likert(three_point, "satisfaction",
+             labels = c("Dissatisfied", "Neutral", "Satisfied"),
+             mapping = c(1L, 2L, 3L)) %>%
+  pull(satisfaction)
+#> [1] "Dissatisfied" "Neutral"      "Satisfied"    "Unsure"
+```
+
+------------------------------------------------------------------------
+
 ## Putting it all together
 
-In a real script, you can chain multiple ntistools calls in a single
-pipeline:
+In a real NTIS cleaning script, you chain multiple ntistools calls into
+a single pipeline. Here’s a condensed example showing how the functions
+work together:
 
 ``` r
 cleaned <- survey %>%
+  # Step 1: Combine related binary indicators into summary columns
   combine_binary(GeoAreas_Locally,
                  GeoAreas_Local, GeoAreas_MultipleLocal,
                  GeoAreas_RegionalWithin) %>%
+  combine_binary(GeoAreas_Multistate,
+                 GeoAreas_MultipleState, GeoAreas_RegionalAcross,
+                 strict_na = TRUE) %>%
+
+  # Step 2: Create any/count/all summaries for disruption indicators
   count_binary("LLDisruption", LLLost, LLDelay, LLStop) %>%
+
+  # Step 3: Recode multi-level demographics to simple 0/1
   recode_binary(c("ProgDem_Children", "ProgDem_Elders")) %>%
+
+  # Step 4: Remove sentinel values
   recode_sentinel("DonImportance") %>%
+
+  # Step 5: Fill in valid-skip NAs using flag columns
   impute_from_flag("PplSrv_NumWait") %>%
-  collapse_likert("FinanceChng_Benefits") %>%
+  impute_from_flag(
+    vars = c("Staff_RegVlntr_2023", "Staff_RegVlntr_2024"),
+    flag_map = c(Staff_RegVlntr_2023 = "Staff_RegVlntr_NA",
+                 Staff_RegVlntr_2024 = "Staff_RegVlntr_NA")
+  ) %>%
+
+  # Step 6: Propagate parent answers to children
   propagate_parent(c("Regulations_Federal", "Regulations_State"),
                    parent_var = "Regulations") %>%
+
+  # Step 7: Zero out variables for ineligible respondents
   apply_filter(c("StaffVacancies", "BenefitsImpact"),
                condition = HaveStaff == 1) %>%
-  label_binary(labels = list(
-    GeoAreas_Locally = c("Serving locally", "Not serving locally")
-  )) %>%
-  label_likert("DonImportance",
-               labels = c("Low", "Medium", "High"),
-               mapping = c(1L, 2L, 3L, 3L),
-               na_values = NULL)
+
+  # Step 8: Label binary columns for reporting
+  label_binary(
+    labels = list(
+      GeoAreas_Locally = c("Serving locally", "Not serving locally"),
+      FinanceChng_Reserves = c("Drew on reserves", "Did not draw"),
+      PrgSrvc_Suspend = c("Paused services", "Did not pause")
+    ),
+    na_values = 97
+  ) %>%
+  label_binary(
+    labels = list(
+      ProgDem_Children = c("Serving children", "Not serving children"),
+      ProgDem_Elders = c("Serving seniors", "Not serving seniors")
+    )
+  ) %>%
+
+  # Step 9: Label Likert scales for reporting
+  label_likert(c("FinanceChng_Benefits", "FinanceChng_TotExp"),
+               labels = c("Decrease", "No change", "Increase")) %>%
+  label_likert("FinanceChng_Salaries",
+               labels = c("Decrease in wages", "No change",
+                          "Increase in wages"))
 
 glimpse(cleaned)
 #> Rows: 6
-#> Columns: 22
+#> Columns: 32
 #> $ GeoAreas_Local          <dbl> 1, 0, 0, NA, 0, 1
 #> $ GeoAreas_MultipleLocal  <dbl> 0, 0, 1, NA, 0, 0
 #> $ GeoAreas_RegionalWithin <dbl> 0, 0, 0, NA, 0, 0
+#> $ GeoAreas_MultipleState  <dbl> 0, NA, 1, NA, 0, 0
+#> $ GeoAreas_RegionalAcross <dbl> 0, NA, 0, NA, 0, 1
 #> $ LLLost                  <dbl> 1, 0, 1, NA, 0, 1
 #> $ LLDelay                 <dbl> 1, 1, 0, NA, 0, 1
 #> $ LLStop                  <dbl> 0, 0, 0, NA, 0, 1
-#> $ ProgDem_Children        <int> 0, 1, 1, NA, 0, 1
-#> $ ProgDem_Elders          <int> 1, 0, NA, 1, 0, 1
-#> $ DonImportance           <chr> "High", "Low", NA, "Medium", NA, "High"
+#> $ ProgDem_Children        <chr> "Not serving children", "Serving children", "S…
+#> $ ProgDem_Elders          <chr> "Serving seniors", "Not serving seniors", NA, …
+#> $ DonImportance           <dbl> 3, 1, NA, 2, NA, 4
 #> $ PplSrv_NumWait          <dbl> 50, 0, 10, NA, 30, 0
 #> $ PplSrv_NumWait_NA_X     <dbl> 0, 1, 0, 0, 0, 1
-#> $ FinanceChng_Benefits    <int> 1, 1, 2, 3, 3, NA
+#> $ Staff_RegVlntr_2023     <dbl> 0, 5, NA, 10, 0, 3
+#> $ Staff_RegVlntr_2024     <dbl> 2, NA, NA, 7, 0, 4
+#> $ Staff_RegVlntr_NA       <dbl> 1, 0, 0, 0, 1, 0
+#> $ FinanceChng_Benefits    <chr> "Decrease", "Decrease", "No change", "Increase…
+#> $ FinanceChng_Salaries    <chr> "Increase in wages", "Increase in wages", "No …
+#> $ FinanceChng_TotExp      <chr> "Decrease", "No change", "Unsure", "Increase",…
+#> $ FinanceChng_Reserves    <chr> "Drew on reserves", "Did not draw", "Did not d…
+#> $ PrgSrvc_Suspend         <chr> "Paused services", "Did not pause", "Did not p…
 #> $ Regulations             <dbl> 1, 0, 97, 1, 0, 1
 #> $ Regulations_Federal     <dbl> 1, 0, 97, 0, 0, 1
 #> $ Regulations_State       <dbl> 0, 0, 97, 1, 0, 1
@@ -579,6 +1074,7 @@ glimpse(cleaned)
 #> $ StaffVacancies          <dbl> 3, 1, NA, 0, NA, 1
 #> $ BenefitsImpact          <dbl> 2, 3, NA, 4, NA, 3
 #> $ GeoAreas_Locally        <chr> "Serving locally", "Not serving locally", "Ser…
+#> $ GeoAreas_Multistate     <int> 0, NA, 1, NA, 0, 1
 #> $ LLDisruption_any        <int> 1, 1, 1, NA, 0, 1
 #> $ LLDisruption_count      <int> 2, 1, 1, NA, 0, 3
 #> $ LLDisruption_all        <int> 0, 0, 0, NA, 0, 1
@@ -586,4 +1082,23 @@ glimpse(cleaned)
 
 What used to be hundreds of lines of repetitive
 [`case_when()`](https://dplyr.tidyverse.org/reference/case-and-replace-when.html)
-calls becomes a single, readable pipeline.
+calls becomes a single, readable pipeline. Each step has a clear name
+that tells you what it does, and the options are explicit rather than
+buried in copy-pasted code.
+
+------------------------------------------------------------------------
+
+## Quick reference
+
+| Function                                                                                         | Input                   | Output                           | Key options                                  |
+|--------------------------------------------------------------------------------------------------|-------------------------|----------------------------------|----------------------------------------------|
+| [`combine_binary()`](https://urbaninstitute.github.io/ntistools/reference/combine_binary.md)     | 0/1 columns             | Single 0/1 column                | `strict_na`                                  |
+| [`count_binary()`](https://urbaninstitute.github.io/ntistools/reference/count_binary.md)         | 0/1 columns             | `_any`, `_count`, `_all` columns | —                                            |
+| [`recode_binary()`](https://urbaninstitute.github.io/ntistools/reference/recode_binary.md)       | Multi-level numeric     | 0/1 integer                      | `ones`, `zeros`, `na_values`                 |
+| [`recode_sentinel()`](https://urbaninstitute.github.io/ntistools/reference/recode_sentinel.md)   | Numeric with sentinels  | Numeric with NA                  | `values`                                     |
+| [`impute_from_flag()`](https://urbaninstitute.github.io/ntistools/reference/impute_from_flag.md) | Numeric + flag column   | Numeric (NAs filled)             | `flag_suffix`, `flag_map`, `impute_value`    |
+| [`collapse_likert()`](https://urbaninstitute.github.io/ntistools/reference/collapse_likert.md)   | 5-point Likert          | 3-category integer               | `mapping`, `na_values`                       |
+| [`propagate_parent()`](https://urbaninstitute.github.io/ntistools/reference/propagate_parent.md) | Parent + child columns  | Children updated                 | `values`                                     |
+| [`apply_filter()`](https://urbaninstitute.github.io/ntistools/reference/apply_filter.md)         | Any columns + condition | Columns with NAs added           | `condition`                                  |
+| [`label_binary()`](https://urbaninstitute.github.io/ntistools/reference/label_binary.md)         | 0/1 columns             | Character columns                | `true_values`, `false_values`, `na_values`   |
+| [`label_likert()`](https://urbaninstitute.github.io/ntistools/reference/label_likert.md)         | Likert numeric          | Character columns                | `mapping`, `labels`, `na_values`, `na_label` |

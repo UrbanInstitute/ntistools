@@ -64,68 +64,103 @@
 
     
     
+<div class="section level2">
+<h2 id="why-ntistools">Why ntistools?<a class="anchor" aria-label="anchor" href="#why-ntistools"></a>
+</h2>
 <p>NTIS data-cleaning scripts tend to repeat the same
 <code><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when()</a></code> patterns over and over: combining binary
-indicators, removing sentinels, collapsing Likert scales, and so on.
-<strong>ntistools</strong> replaces each pattern with a single,
+indicators, removing sentinels, collapsing Likert scales, labeling
+columns, and so on. A typical script might contain 20+ blocks of nearly
+identical code like this:</p>
+<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># This same pattern, repeated for every binary variable...</span></span>
+<span><span class="va">ProgDem_Veterans</span> <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
+<span>  <span class="va">ProgDem_Veterans</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="st">"Serving veterans"</span>,</span>
+<span>  <span class="va">ProgDem_Veterans</span> <span class="op">==</span> <span class="fl">0</span> <span class="op">~</span> <span class="st">"Not serving veterans"</span>,</span>
+<span>  .default <span class="op">=</span> <span class="cn">NA_character_</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p><strong>ntistools</strong> replaces each pattern with a single,
 purpose-built function so your scripts are shorter, easier to read, and
-less error-prone.</p>
-<p>This vignette walks through each function, showing the verbose
-“before” code alongside the concise “after” equivalent, all using a
-small synthetic dataset.</p>
+less error-prone. This vignette walks through each function, showing the
+verbose “before” code alongside the concise “after” equivalent, all
+using a small synthetic dataset.</p>
+</div>
 <div class="section level2">
 <h2 id="setup">Setup<a class="anchor" aria-label="anchor" href="#setup"></a>
 </h2>
-<div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<p>We start by creating a synthetic dataset that mimics the structure of
+real NTIS survey data. Each column represents a common pattern you’ll
+encounter:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://urbaninstitute.github.io/ntistools/">ntistools</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://dplyr.tidyverse.org" class="external-link">dplyr</a></span><span class="op">)</span></span>
 <span></span>
 <span><span class="va">survey</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
-<span>  <span class="co"># Binary geographic indicators</span></span>
-<span>  GeoAreas_Local        <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  GeoAreas_MultipleLocal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  <span class="co"># Binary geographic indicators (0 = no, 1 = yes)</span></span>
+<span>  GeoAreas_Local          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  GeoAreas_MultipleLocal  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
 <span>  GeoAreas_RegionalWithin <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  GeoAreas_MultipleState  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">1</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  GeoAreas_RegionalAcross <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span></span>
-<span> <span class="co"># Disruption indicators</span></span>
+<span>  <span class="co"># Disruption indicators (0 = no, 1 = yes)</span></span>
 <span>  LLLost  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  LLDelay <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  LLStop  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span></span>
-<span>  <span class="co"># ProgDem-style column (0 = no, 1 = yes primary, 2 = yes secondary, 98 = NA)</span></span>
+<span>  <span class="co"># ProgDem-style columns (0 = no, 1 = yes primary, 2 = yes secondary, 98 = NA)</span></span>
 <span>  ProgDem_Children <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">98</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  ProgDem_Elders   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">98</span>, <span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span></span>
-<span>  <span class="co"># Sentinel values</span></span>
+<span>  <span class="co"># Sentinel values (98 = "don't know")</span></span>
 <span>  DonImportance <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">98</span>, <span class="fl">2</span>, <span class="fl">98</span>, <span class="fl">4</span><span class="op">)</span>,</span>
 <span></span>
 <span>  <span class="co"># Flag-based imputation columns</span></span>
+<span>  <span class="co"># PplSrv_NumWait_NA_X = 1 means "respondent confirmed they had zero people</span></span>
+<span>  <span class="co"># waiting", so NA should be replaced with 0</span></span>
 <span>  PplSrv_NumWait      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">50</span>, <span class="cn">NA</span>, <span class="fl">10</span>, <span class="cn">NA</span>, <span class="fl">30</span>, <span class="cn">NA</span><span class="op">)</span>,</span>
 <span>  PplSrv_NumWait_NA_X <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>,   <span class="fl">1</span>,  <span class="fl">0</span>,  <span class="fl">0</span>,  <span class="fl">0</span>,  <span class="fl">1</span><span class="op">)</span>,</span>
 <span></span>
-<span>  <span class="co"># Likert scales (1-5, with 97 = N/A)</span></span>
-<span>  FinanceChng_Benefits <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span>, <span class="fl">97</span><span class="op">)</span>,</span>
+<span>  <span class="co"># Imputation with year-suffixed variable names</span></span>
+<span>  <span class="co"># The variable has a year suffix but the flag column does not</span></span>
+<span>  Staff_RegVlntr_2023 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fl">5</span>,  <span class="cn">NA</span>, <span class="fl">10</span>, <span class="cn">NA</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  Staff_RegVlntr_2024 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>,  <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="fl">7</span>,  <span class="cn">NA</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span>  Staff_RegVlntr_NA   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>,  <span class="fl">0</span>,  <span class="fl">0</span>,  <span class="fl">0</span>,  <span class="fl">1</span>,  <span class="fl">0</span><span class="op">)</span>,</span>
 <span></span>
-<span> <span class="co"># Parent/child regulation pattern</span></span>
-<span>  Regulations          <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">97</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  Regulations_Federal  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  Regulations_State    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="fl">1</span>, <span class="cn">NA</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  <span class="co"># Likert scales (1-5, with 97 = "not applicable")</span></span>
+<span>  FinanceChng_Benefits  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span>, <span class="fl">97</span><span class="op">)</span>,</span>
+<span>  FinanceChng_Salaries  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">4</span>, <span class="fl">3</span>, <span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">97</span><span class="op">)</span>,</span>
+<span>  FinanceChng_TotExp    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">97</span>, <span class="fl">5</span>, <span class="fl">1</span>, <span class="fl">4</span><span class="op">)</span>,</span>
+<span></span>
+<span>  <span class="co"># Finance change indicators (1 = yes, 0 = no, 97 = not applicable)</span></span>
+<span>  FinanceChng_Reserves <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">97</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  PrgSrvc_Suspend      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">97</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span></span>
+<span>  <span class="co"># Parent/child regulation pattern</span></span>
+<span>  Regulations         <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">97</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  Regulations_Federal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="fl">0</span>, <span class="cn">NA</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  Regulations_State   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="fl">1</span>, <span class="cn">NA</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span></span>
 <span>  <span class="co"># Staff filter columns</span></span>
-<span>  HaveStaff         <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  StaffVacancies    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">4</span>, <span class="fl">1</span><span class="op">)</span>,</span>
-<span>  BenefitsImpact    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span></span>
+<span>  HaveStaff      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  StaffVacancies <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">4</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  BenefitsImpact <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">4</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
+<hr>
 </div>
 <div class="section level2">
 <h2 id="combine_binary-grouping-binary-indicators">1. <code>combine_binary()</code> — Grouping binary indicators<a class="anchor" aria-label="anchor" href="#combine_binary-grouping-binary-indicators"></a>
 </h2>
-<p>Combine several binary (0/1) columns into one using OR logic: 1 if
-<strong>any</strong> are 1, NA if <strong>all</strong> are NA, 0
-otherwise.</p>
+<p><strong>The problem:</strong> You have several related 0/1 columns
+and need a single column that is 1 if <strong>any</strong> of them are
+1. For example, in the NTIS extraction script,
+<code>GeoAreas_Local</code>, <code>GeoAreas_MultipleLocal</code>, and
+<code>GeoAreas_RegionalWithin</code> are combined into
+<code>GeoAreas_ServedLocal</code>.</p>
 <div class="section level3">
 <h3 id="before">Before<a class="anchor" aria-label="anchor" href="#before"></a>
 </h3>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
 <span>    GeoAreas_Locally <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
@@ -137,59 +172,112 @@ otherwise.</p>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
-<span><span class="va">before</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"GeoAreas"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   GeoAreas_Local GeoAreas_MultipleLocal GeoAreas_RegionalWithin</span></span>
-<span><span class="co">#&gt; 1              1                      0                       0</span></span>
-<span><span class="co">#&gt; 2              0                      0                       0</span></span>
-<span><span class="co">#&gt; 3              0                      1                       0</span></span>
-<span><span class="co">#&gt; 4             NA                     NA                      NA</span></span>
-<span><span class="co">#&gt; 5              0                      0                       0</span></span>
-<span><span class="co">#&gt; 6              1                      0                       0</span></span>
-<span><span class="co">#&gt;   GeoAreas_Locally</span></span>
-<span><span class="co">#&gt; 1                1</span></span>
-<span><span class="co">#&gt; 2                0</span></span>
-<span><span class="co">#&gt; 3                1</span></span>
-<span><span class="co">#&gt; 4               NA</span></span>
-<span><span class="co">#&gt; 5                0</span></span>
-<span><span class="co">#&gt; 6                1</span></span></code></pre></div>
+<span><span class="va">before</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"GeoAreas_L"</span><span class="op">)</span>, <span class="va">GeoAreas_MultipleLocal</span>,</span>
+<span>                  <span class="va">GeoAreas_RegionalWithin</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   GeoAreas_Local GeoAreas_Locally GeoAreas_MultipleLocal</span></span>
+<span><span class="co">#&gt; 1              1                1                      0</span></span>
+<span><span class="co">#&gt; 2              0                0                      0</span></span>
+<span><span class="co">#&gt; 3              0                1                      1</span></span>
+<span><span class="co">#&gt; 4             NA               NA                     NA</span></span>
+<span><span class="co">#&gt; 5              0                0                      0</span></span>
+<span><span class="co">#&gt; 6              1                1                      0</span></span>
+<span><span class="co">#&gt;   GeoAreas_RegionalWithin</span></span>
+<span><span class="co">#&gt; 1                       0</span></span>
+<span><span class="co">#&gt; 2                       0</span></span>
+<span><span class="co">#&gt; 3                       0</span></span>
+<span><span class="co">#&gt; 4                      NA</span></span>
+<span><span class="co">#&gt; 5                       0</span></span>
+<span><span class="co">#&gt; 6                       0</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="after">After<a class="anchor" aria-label="anchor" href="#after"></a>
 </h3>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/combine_binary.html">combine_binary</a></span><span class="op">(</span><span class="va">GeoAreas_Locally</span>,</span>
 <span>                 <span class="va">GeoAreas_Local</span>, <span class="va">GeoAreas_MultipleLocal</span>,</span>
 <span>                 <span class="va">GeoAreas_RegionalWithin</span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"GeoAreas"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt;   GeoAreas_Local GeoAreas_MultipleLocal GeoAreas_RegionalWithin</span></span>
-<span><span class="co">#&gt; 1              1                      0                       0</span></span>
-<span><span class="co">#&gt; 2              0                      0                       0</span></span>
-<span><span class="co">#&gt; 3              0                      1                       0</span></span>
-<span><span class="co">#&gt; 4             NA                     NA                      NA</span></span>
-<span><span class="co">#&gt; 5              0                      0                       0</span></span>
-<span><span class="co">#&gt; 6              1                      0                       0</span></span>
-<span><span class="co">#&gt;   GeoAreas_Locally</span></span>
-<span><span class="co">#&gt; 1                1</span></span>
-<span><span class="co">#&gt; 2                0</span></span>
-<span><span class="co">#&gt; 3                1</span></span>
-<span><span class="co">#&gt; 4               NA</span></span>
-<span><span class="co">#&gt; 5                0</span></span>
-<span><span class="co">#&gt; 6                1</span></span></code></pre></div>
+<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"GeoAreas_L"</span><span class="op">)</span>, <span class="va">GeoAreas_MultipleLocal</span>,</span>
+<span>                 <span class="va">GeoAreas_RegionalWithin</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   GeoAreas_Local GeoAreas_Locally GeoAreas_MultipleLocal</span></span>
+<span><span class="co">#&gt; 1              1                1                      0</span></span>
+<span><span class="co">#&gt; 2              0                0                      0</span></span>
+<span><span class="co">#&gt; 3              0                1                      1</span></span>
+<span><span class="co">#&gt; 4             NA               NA                     NA</span></span>
+<span><span class="co">#&gt; 5              0                0                      0</span></span>
+<span><span class="co">#&gt; 6              1                1                      0</span></span>
+<span><span class="co">#&gt;   GeoAreas_RegionalWithin</span></span>
+<span><span class="co">#&gt; 1                       0</span></span>
+<span><span class="co">#&gt; 2                       0</span></span>
+<span><span class="co">#&gt; 3                       0</span></span>
+<span><span class="co">#&gt; 4                      NA</span></span>
+<span><span class="co">#&gt; 5                       0</span></span>
+<span><span class="co">#&gt; 6                       0</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="option-strict_na-for-stricter-na-handling">Option: <code>strict_na</code> for stricter NA handling<a class="anchor" aria-label="anchor" href="#option-strict_na-for-stricter-na-handling"></a>
+</h3>
+<p>By default, <code><a href="../reference/combine_binary.html">combine_binary()</a></code> only returns NA when
+<strong>all</strong> source columns are NA. If a row has
+<code>c(0, NA)</code>, the result is 0.</p>
+<p>Sometimes you need stricter behavior: if <strong>any</strong> source
+is NA (and none are 1), the result should be NA. This matches the
+<code>binary_flag()</code> function used in older NTIS scripts. Set
+<code>strict_na = TRUE</code> to get this behavior.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Data where one source is 0 and the other is NA</span></span>
+<span><span class="va">strict_example</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  a <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>,  <span class="fl">1</span>,  <span class="cn">NA</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  b <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="cn">NA</span>, <span class="cn">NA</span>, <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Default: lenient (0 + NA = 0)</span></span>
+<span><span class="fu"><a href="../reference/combine_binary.html">combine_binary</a></span><span class="op">(</span><span class="va">strict_example</span>, <span class="va">result_lenient</span>, <span class="va">a</span>, <span class="va">b</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span>, <span class="va">result_lenient</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    a  b result_lenient</span></span>
+<span><span class="co">#&gt; 1  0 NA              0</span></span>
+<span><span class="co">#&gt; 2  1 NA              1</span></span>
+<span><span class="co">#&gt; 3 NA NA             NA</span></span>
+<span><span class="co">#&gt; 4  0  0              0</span></span>
+<span></span>
+<span><span class="co"># Strict: any NA poisons the result (0 + NA = NA), unless a 1 is present</span></span>
+<span><span class="fu"><a href="../reference/combine_binary.html">combine_binary</a></span><span class="op">(</span><span class="va">strict_example</span>, <span class="va">result_strict</span>, <span class="va">a</span>, <span class="va">b</span>, strict_na <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span>, <span class="va">result_strict</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    a  b result_strict</span></span>
+<span><span class="co">#&gt; 1  0 NA            NA</span></span>
+<span><span class="co">#&gt; 2  1 NA             1</span></span>
+<span><span class="co">#&gt; 3 NA NA            NA</span></span>
+<span><span class="co">#&gt; 4  0  0             0</span></span></code></pre></div>
+<p><strong>When to use <code>strict_na = TRUE</code>:</strong> Use it
+when a missing value means you genuinely don’t know if the respondent
+would have answered “yes.” In the NTIS extraction script, the
+<code>GeoAreas_ServedLocal</code> and
+<code>GeoAreas_Servedmultistate</code> variables use strict mode.</p>
+<hr>
 </div>
 </div>
 <div class="section level2">
 <h2 id="count_binary-any-count-all-from-binary-indicators">2. <code>count_binary()</code> — Any / count / all from binary
 indicators<a class="anchor" aria-label="anchor" href="#count_binary-any-count-all-from-binary-indicators"></a>
 </h2>
-<p>Creates three summary columns (<code>_any</code>,
-<code>_count</code>, <code>_all</code>) from a set of binary columns in
-a single call.</p>
+<p>Creates three summary columns at once from a set of binary
+columns:</p>
+<ul>
+<li>
+<code>{prefix}_any</code>: 1 if <strong>any</strong> source is
+1</li>
+<li>
+<code>{prefix}_count</code>: how many sources are 1</li>
+<li>
+<code>{prefix}_all</code>: 1 if <strong>every</strong> source is
+1</li>
+</ul>
+<p>All three are NA when every source column is NA.</p>
 <div class="section level3">
 <h3 id="before-1">Before<a class="anchor" aria-label="anchor" href="#before-1"></a>
 </h3>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
 <span>    LLDisruption_any <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
@@ -221,7 +309,7 @@ a single call.</p>
 <div class="section level3">
 <h3 id="after-1">After<a class="anchor" aria-label="anchor" href="#after-1"></a>
 </h3>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/count_binary.html">count_binary</a></span><span class="op">(</span><span class="st">"LLDisruption"</span>, <span class="va">LLLost</span>, <span class="va">LLDelay</span>, <span class="va">LLStop</span><span class="op">)</span></span>
 <span></span>
@@ -233,16 +321,24 @@ a single call.</p>
 <span><span class="co">#&gt; 4     NA      NA     NA               NA                 NA               NA</span></span>
 <span><span class="co">#&gt; 5      0       0      0                0                  0                0</span></span>
 <span><span class="co">#&gt; 6      1       1      1                1                  3                1</span></span></code></pre></div>
+<p><strong>Tip:</strong> If you only need the <code>_any</code> column
+(not <code>_count</code> or <code>_all</code>), use
+<code><a href="../reference/combine_binary.html">combine_binary()</a></code> instead — it creates a single column and
+lets you name it whatever you want.</p>
+<hr>
 </div>
 </div>
 <div class="section level2">
 <h2 id="recode_binary-collapse-multi-level-to-01">3. <code>recode_binary()</code> — Collapse multi-level to 0/1<a class="anchor" aria-label="anchor" href="#recode_binary-collapse-multi-level-to-01"></a>
 </h2>
-<p>Recode columns where 0 = no, 1 &amp; 2 = yes, and 98 = NA.</p>
+<p><strong>The problem:</strong> NTIS demographic columns use 0 = “no”,
+1 = “yes (primary)”, 2 = “yes (secondary)”, and 98 = “don’t know.” You
+need to collapse these to simple 0/1. In the extraction script, all
+<code>ProgDem_</code> columns go through this step.</p>
 <div class="section level3">
 <h3 id="before-2">Before<a class="anchor" aria-label="anchor" href="#before-2"></a>
 </h3>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">recode_progdem</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
 <span>    <span class="va">x</span> <span class="op">==</span> <span class="fl">0</span> <span class="op">~</span> <span class="fl">0</span>, <span class="va">x</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="fl">1</span>, <span class="va">x</span> <span class="op">==</span> <span class="fl">2</span> <span class="op">~</span> <span class="fl">1</span>,</span>
@@ -266,7 +362,7 @@ a single call.</p>
 <div class="section level3">
 <h3 id="after-2">After<a class="anchor" aria-label="anchor" href="#after-2"></a>
 </h3>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/recode_binary.html">recode_binary</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ProgDem_Children"</span>, <span class="st">"ProgDem_Elders"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
@@ -279,15 +375,35 @@ a single call.</p>
 <span><span class="co">#&gt; 5                0              0</span></span>
 <span><span class="co">#&gt; 6                1              1</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="customizing-value-mappings">Customizing value mappings<a class="anchor" aria-label="anchor" href="#customizing-value-mappings"></a>
+</h3>
+<p>The defaults (<code>ones = c(1, 2)</code>, <code>zeros = 0</code>,
+<code>na_values = 98</code>) work for <code>ProgDem_</code> columns, but
+you can customize them for other patterns:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Example: a column where 1-3 mean "yes" and 4-5 mean "no"</span></span>
+<span><span class="va">custom_example</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>rating <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span>, <span class="fl">98</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/recode_binary.html">recode_binary</a></span><span class="op">(</span><span class="va">custom_example</span>, <span class="st">"rating"</span>,</span>
+<span>              ones <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>              zeros <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">4</span>, <span class="fl">5</span><span class="op">)</span>,</span>
+<span>              na_values <span class="op">=</span> <span class="fl">98</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">rating</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1]  1  1  1  0  0 NA</span></span></code></pre></div>
+<hr>
+</div>
 </div>
 <div class="section level2">
-<h2 id="recode_sentinel-remove-98s">4. <code>recode_sentinel()</code> — Remove 98s<a class="anchor" aria-label="anchor" href="#recode_sentinel-remove-98s"></a>
+<h2 id="recode_sentinel-remove-sentinel-values">4. <code>recode_sentinel()</code> — Remove sentinel values<a class="anchor" aria-label="anchor" href="#recode_sentinel-remove-sentinel-values"></a>
 </h2>
-<p>Replace sentinel values (e.g., 98 = “don’t know”) with NA.</p>
+<p>Replace survey sentinel values (e.g., 98 = “don’t know”) with
+<code>NA</code>. The extraction script removes 98s from dozens of
+columns before analysis.</p>
 <div class="section level3">
 <h3 id="before-3">Before<a class="anchor" aria-label="anchor" href="#before-3"></a>
 </h3>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/across.html" class="external-link">across</a></span><span class="op">(</span></span>
 <span>    <span class="fu"><a href="https://tidyselect.r-lib.org/reference/all_of.html" class="external-link">all_of</a></span><span class="op">(</span><span class="st">"DonImportance"</span><span class="op">)</span>,</span>
@@ -306,7 +422,7 @@ a single call.</p>
 <div class="section level3">
 <h3 id="after-3">After<a class="anchor" aria-label="anchor" href="#after-3"></a>
 </h3>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/recode_sentinel.html">recode_sentinel</a></span><span class="op">(</span><span class="st">"DonImportance"</span><span class="op">)</span></span>
 <span></span>
@@ -319,18 +435,39 @@ a single call.</p>
 <span><span class="co">#&gt; 5            NA</span></span>
 <span><span class="co">#&gt; 6             4</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="removing-different-sentinel-values">Removing different sentinel values<a class="anchor" aria-label="anchor" href="#removing-different-sentinel-values"></a>
+</h3>
+<p>By default, <code><a href="../reference/recode_sentinel.html">recode_sentinel()</a></code> removes 98. You can change
+which values to remove:</p>
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Remove both 97 and 98</span></span>
+<span><span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/recode_sentinel.html">recode_sentinel</a></span><span class="op">(</span><span class="st">"DonImportance"</span>, values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">97</span>, <span class="fl">98</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">DonImportance</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   DonImportance</span></span>
+<span><span class="co">#&gt; 1             3</span></span>
+<span><span class="co">#&gt; 2             1</span></span>
+<span><span class="co">#&gt; 3            NA</span></span>
+<span><span class="co">#&gt; 4             2</span></span>
+<span><span class="co">#&gt; 5            NA</span></span>
+<span><span class="co">#&gt; 6             4</span></span></code></pre></div>
+<hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="impute_from_flag-fill-na-when-a-flag-says-skip-was-valid">5. <code>impute_from_flag()</code> — Fill NA when a flag says “skip
 was valid”<a class="anchor" aria-label="anchor" href="#impute_from_flag-fill-na-when-a-flag-says-skip-was-valid"></a>
 </h2>
-<p>When a respondent legitimately skipped a numeric question, the value
-is NA but a companion flag column (e.g., <code>_NA_X</code>) is 1.
-Replace those NAs with 0.</p>
+<p><strong>The problem:</strong> When a respondent legitimately skipped
+a numeric question (e.g., “How many people are on your waitlist?” when
+they have no waitlist), the value is <code>NA</code> but a companion
+flag column (e.g., <code>PplSrv_NumWait_NA_X</code>) is set to 1. These
+NAs should be replaced with 0 (not left as missing data).</p>
 <div class="section level3">
 <h3 id="before-4">Before<a class="anchor" aria-label="anchor" href="#before-4"></a>
 </h3>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
 <span>    PplSrv_NumWait <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
@@ -351,7 +488,7 @@ Replace those NAs with 0.</p>
 <div class="section level3">
 <h3 id="after-4">After<a class="anchor" aria-label="anchor" href="#after-4"></a>
 </h3>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/impute_from_flag.html">impute_from_flag</a></span><span class="op">(</span><span class="st">"PplSrv_NumWait"</span><span class="op">)</span></span>
 <span></span>
@@ -364,16 +501,112 @@ Replace those NAs with 0.</p>
 <span><span class="co">#&gt; 5             30                   0</span></span>
 <span><span class="co">#&gt; 6              0                   1</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="option-flag_map-for-non-standard-flag-column-names">Option: <code>flag_map</code> for non-standard flag column
+names<a class="anchor" aria-label="anchor" href="#option-flag_map-for-non-standard-flag-column-names"></a>
+</h3>
+<p>Sometimes the variable name includes a year suffix (e.g.,
+<code>Staff_RegVlntr_2023</code>) but the flag column does not (e.g.,
+<code>Staff_RegVlntr_NA</code>). The default
+<code>paste0(var, flag_suffix)</code> logic would look for
+<code>Staff_RegVlntr_2023_NA_X</code>, which doesn’t exist.</p>
+<p>Use <code>flag_map</code> to tell the function exactly which flag
+column to use for each variable:</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Before: six separate case_when blocks in the extraction script</span></span>
+<span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
+<span>    Staff_RegVlntr_2023 <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">Staff_RegVlntr_2023</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">Staff_RegVlntr_NA</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="fl">0</span>,</span>
+<span>      .default <span class="op">=</span> <span class="va">Staff_RegVlntr_2023</span></span>
+<span>    <span class="op">)</span>,</span>
+<span>    Staff_RegVlntr_2024 <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
+<span>      <span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">Staff_RegVlntr_2024</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">Staff_RegVlntr_NA</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="fl">0</span>,</span>
+<span>      .default <span class="op">=</span> <span class="va">Staff_RegVlntr_2024</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="va">before</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"Staff_RegVlntr"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Staff_RegVlntr_2023 Staff_RegVlntr_2024 Staff_RegVlntr_NA</span></span>
+<span><span class="co">#&gt; 1                   0                   2                 1</span></span>
+<span><span class="co">#&gt; 2                   5                  NA                 0</span></span>
+<span><span class="co">#&gt; 3                  NA                  NA                 0</span></span>
+<span><span class="co">#&gt; 4                  10                   7                 0</span></span>
+<span><span class="co">#&gt; 5                   0                   0                 1</span></span>
+<span><span class="co">#&gt; 6                   3                   4                 0</span></span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># After: one call handles both year columns</span></span>
+<span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/impute_from_flag.html">impute_from_flag</a></span><span class="op">(</span></span>
+<span>    vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Staff_RegVlntr_2023"</span>, <span class="st">"Staff_RegVlntr_2024"</span><span class="op">)</span>,</span>
+<span>    flag_map <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Staff_RegVlntr_2023 <span class="op">=</span> <span class="st">"Staff_RegVlntr_NA"</span>,</span>
+<span>                 Staff_RegVlntr_2024 <span class="op">=</span> <span class="st">"Staff_RegVlntr_NA"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span></span>
+<span></span>
+<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"Staff_RegVlntr"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Staff_RegVlntr_2023 Staff_RegVlntr_2024 Staff_RegVlntr_NA</span></span>
+<span><span class="co">#&gt; 1                   0                   2                 1</span></span>
+<span><span class="co">#&gt; 2                   5                  NA                 0</span></span>
+<span><span class="co">#&gt; 3                  NA                  NA                 0</span></span>
+<span><span class="co">#&gt; 4                  10                   7                 0</span></span>
+<span><span class="co">#&gt; 5                   0                   0                 1</span></span>
+<span><span class="co">#&gt; 6                   3                   4                 0</span></span></code></pre></div>
+<p><strong>Tip:</strong> You can mix <code>flag_map</code> and the
+default suffix in the same call. Variables listed in
+<code>flag_map</code> use their mapped flag; all others fall back to
+<code>paste0(var, flag_suffix)</code>.</p>
+<hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="collapse_likert-likert-5-point-to-3-point">6. <code>collapse_likert()</code> — Likert 5-point to 3-point<a class="anchor" aria-label="anchor" href="#collapse_likert-likert-5-point-to-3-point"></a>
 </h2>
 <p>Collapse a 5-point Likert scale (1–5) into 3 categories (1 = low, 2 =
-mid, 3 = high), with 97 set to NA.</p>
+mid, 3 = high), with 97 set to NA. The default
+<code>mapping = c(1, 1, 2, 3, 3)</code> means:</p>
+<table class="table">
+<thead><tr class="header">
+<th align="center">Original</th>
+<th align="center">Maps to</th>
+<th>Meaning</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td align="center">1</td>
+<td align="center">1</td>
+<td>Low (e.g., “Significant decrease”)</td>
+</tr>
+<tr class="even">
+<td align="center">2</td>
+<td align="center">1</td>
+<td>Low (e.g., “Some decrease”)</td>
+</tr>
+<tr class="odd">
+<td align="center">3</td>
+<td align="center">2</td>
+<td>Mid (e.g., “No change”)</td>
+</tr>
+<tr class="even">
+<td align="center">4</td>
+<td align="center">3</td>
+<td>High (e.g., “Some increase”)</td>
+</tr>
+<tr class="odd">
+<td align="center">5</td>
+<td align="center">3</td>
+<td>High (e.g., “Significant increase”)</td>
+</tr>
+<tr class="even">
+<td align="center">97</td>
+<td align="center">NA</td>
+<td>Not applicable</td>
+</tr>
+</tbody>
+</table>
 <div class="section level3">
 <h3 id="before-5">Before<a class="anchor" aria-label="anchor" href="#before-5"></a>
 </h3>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
 <span>    FinanceChng_Benefits <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case_match.html" class="external-link">case_match</a></span><span class="op">(</span></span>
@@ -399,7 +632,7 @@ mid, 3 = high), with 97 set to NA.</p>
 <div class="section level3">
 <h3 id="after-5">After<a class="anchor" aria-label="anchor" href="#after-5"></a>
 </h3>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/collapse_likert.html">collapse_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_Benefits"</span><span class="op">)</span></span>
 <span></span>
@@ -412,17 +645,40 @@ mid, 3 = high), with 97 set to NA.</p>
 <span><span class="co">#&gt; 5                    3</span></span>
 <span><span class="co">#&gt; 6                   NA</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="applying-to-multiple-columns-at-once">Applying to multiple columns at once<a class="anchor" aria-label="anchor" href="#applying-to-multiple-columns-at-once"></a>
+</h3>
+<p>In the extraction script, many Likert columns are collapsed using the
+same mapping. Pass a character vector of column names:</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">likert_cols</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"FinanceChng_Benefits"</span>, <span class="st">"FinanceChng_Salaries"</span>,</span>
+<span>                 <span class="st">"FinanceChng_TotExp"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/collapse_likert.html">collapse_likert</a></span><span class="op">(</span><span class="va">likert_cols</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/all_of.html" class="external-link">all_of</a></span><span class="op">(</span><span class="va">likert_cols</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   FinanceChng_Benefits FinanceChng_Salaries FinanceChng_TotExp</span></span>
+<span><span class="co">#&gt; 1                    1                    3                  1</span></span>
+<span><span class="co">#&gt; 2                    1                    3                  2</span></span>
+<span><span class="co">#&gt; 3                    2                    2                 NA</span></span>
+<span><span class="co">#&gt; 4                    3                    1                  3</span></span>
+<span><span class="co">#&gt; 5                    3                    1                  1</span></span>
+<span><span class="co">#&gt; 6                   NA                   NA                  3</span></span></code></pre></div>
+<hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="propagate_parent-push-parent-value-to-children">7. <code>propagate_parent()</code> — Push parent value to
 children<a class="anchor" aria-label="anchor" href="#propagate_parent-push-parent-value-to-children"></a>
 </h2>
-<p>When a parent question (e.g., <code>Regulations</code>) is 0 (“no”)
-or 97 (“N/A”), propagate that value to all follow-up child columns.</p>
+<p>When a parent question (e.g., “Does your organization face government
+regulations?”) is 0 (“no”) or 97 (“N/A”), the follow-up questions should
+inherit that value instead of being left as NA.</p>
 <div class="section level3">
 <h3 id="before-6">Before<a class="anchor" aria-label="anchor" href="#before-6"></a>
 </h3>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/across.html" class="external-link">across</a></span><span class="op">(</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">Regulations_Federal</span>, <span class="va">Regulations_State</span><span class="op">)</span>,</span>
@@ -445,7 +701,7 @@ or 97 (“N/A”), propagate that value to all follow-up child columns.</p>
 <div class="section level3">
 <h3 id="after-6">After<a class="anchor" aria-label="anchor" href="#after-6"></a>
 </h3>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/propagate_parent.html">propagate_parent</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Regulations_Federal"</span>, <span class="st">"Regulations_State"</span><span class="op">)</span>,</span>
 <span>                   parent_var <span class="op">=</span> <span class="st">"Regulations"</span><span class="op">)</span></span>
@@ -459,17 +715,41 @@ or 97 (“N/A”), propagate that value to all follow-up child columns.</p>
 <span><span class="co">#&gt; 5           0                   0                 0</span></span>
 <span><span class="co">#&gt; 6           1                   1                 1</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="customizing-which-parent-values-propagate">Customizing which parent values propagate<a class="anchor" aria-label="anchor" href="#customizing-which-parent-values-propagate"></a>
+</h3>
+<p>By default, <code>values = c(0, 97)</code> (both “no” and “not
+applicable” propagate). You can change this:</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Only propagate 0 (not 97)</span></span>
+<span><span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/propagate_parent.html">propagate_parent</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Regulations_Federal"</span>, <span class="st">"Regulations_State"</span><span class="op">)</span>,</span>
+<span>                   parent_var <span class="op">=</span> <span class="st">"Regulations"</span>,</span>
+<span>                   values <span class="op">=</span> <span class="fl">0</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"Regulations"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Regulations Regulations_Federal Regulations_State</span></span>
+<span><span class="co">#&gt; 1           1                   1                 0</span></span>
+<span><span class="co">#&gt; 2           0                   0                 0</span></span>
+<span><span class="co">#&gt; 3          97                  NA                NA</span></span>
+<span><span class="co">#&gt; 4           1                   0                 1</span></span>
+<span><span class="co">#&gt; 5           0                   0                 0</span></span>
+<span><span class="co">#&gt; 6           1                   1                 1</span></span></code></pre></div>
+<hr>
+</div>
 </div>
 <div class="section level2">
-<h2 id="apply_filter-zero-out-variables-for-ineligible-respondents">8. <code>apply_filter()</code> — Zero-out variables for ineligible
-respondents<a class="anchor" aria-label="anchor" href="#apply_filter-zero-out-variables-for-ineligible-respondents"></a>
+<h2 id="apply_filter-set-variables-to-na-for-ineligible-respondents">8. <code>apply_filter()</code> — Set variables to NA for ineligible
+respondents<a class="anchor" aria-label="anchor" href="#apply_filter-set-variables-to-na-for-ineligible-respondents"></a>
 </h2>
-<p>Set variables to NA for organizations that don’t meet a condition
-(e.g., no paid staff).</p>
+<p><strong>The problem:</strong> Some survey questions only apply to
+certain organizations. For example, questions about staff vacancies and
+benefits only make sense for organizations that have paid staff. For
+orgs without staff, these values should be set to NA so they don’t
+affect analysis.</p>
 <div class="section level3">
 <h3 id="before-7">Before<a class="anchor" aria-label="anchor" href="#before-7"></a>
 </h3>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/across.html" class="external-link">across</a></span><span class="op">(</span></span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">StaffVacancies</span>, <span class="va">BenefitsImpact</span><span class="op">)</span>,</span>
@@ -488,7 +768,7 @@ respondents<a class="anchor" aria-label="anchor" href="#apply_filter-zero-out-va
 <div class="section level3">
 <h3 id="after-7">After<a class="anchor" aria-label="anchor" href="#after-7"></a>
 </h3>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/apply_filter.html">apply_filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"StaffVacancies"</span>, <span class="st">"BenefitsImpact"</span><span class="op">)</span>,</span>
 <span>               condition <span class="op">=</span> <span class="va">HaveStaff</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span>
@@ -501,75 +781,182 @@ respondents<a class="anchor" aria-label="anchor" href="#apply_filter-zero-out-va
 <span><span class="co">#&gt; 4         1              0              4</span></span>
 <span><span class="co">#&gt; 5         0             NA             NA</span></span>
 <span><span class="co">#&gt; 6         1              1              3</span></span></code></pre></div>
+<p><strong>Tip:</strong> The <code>condition</code> argument accepts any
+expression you could use in <code><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">dplyr::filter()</a></code>. For example,
+<code>condition = HaveStaff == 1 &amp; year == "2024"</code> would only
+keep values for orgs with staff in 2024.</p>
+<hr>
 </div>
 </div>
 <div class="section level2">
 <h2 id="label_binary-convert-01-to-descriptive-labels">9. <code>label_binary()</code> — Convert 0/1 to descriptive
 labels<a class="anchor" aria-label="anchor" href="#label_binary-convert-01-to-descriptive-labels"></a>
 </h2>
-<p>Turn binary indicators into human-readable strings. Values in
-<code>na_values</code> (e.g., 97) map to the false label.</p>
+<p><strong>The problem:</strong> After recoding to 0/1, you often need
+to convert columns to descriptive strings for reporting. The NTIS
+extraction script has 25+ blocks of identical <code><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when()</a></code>
+code like this, one per variable. <code><a href="../reference/label_binary.html">label_binary()</a></code> replaces
+all of them in a single call.</p>
 <div class="section level3">
 <h3 id="before-8">Before<a class="anchor" aria-label="anchor" href="#before-8"></a>
 </h3>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
-<span>    GeoAreas_Local <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
-<span>      <span class="va">GeoAreas_Local</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="st">"Serving local areas"</span>,</span>
-<span>      <span class="va">GeoAreas_Local</span> <span class="op">==</span> <span class="fl">0</span> <span class="op">~</span> <span class="st">"Not serving local areas"</span>,</span>
+<span>    FinanceChng_Reserves <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
+<span>      <span class="va">FinanceChng_Reserves</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="st">"Drew on cash reserves"</span>,</span>
+<span>      <span class="va">FinanceChng_Reserves</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">97</span><span class="op">)</span> <span class="op">~</span> <span class="st">"Did not draw on cash reserves"</span>,</span>
 <span>      .default <span class="op">=</span> <span class="cn">NA_character_</span></span>
 <span>    <span class="op">)</span>,</span>
-<span>    FinanceChng_Benefits <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
-<span>      <span class="va">FinanceChng_Benefits</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="st">"Benefits changed"</span>,</span>
-<span>      <span class="va">FinanceChng_Benefits</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">97</span><span class="op">)</span> <span class="op">~</span> <span class="st">"Benefits did not change"</span>,</span>
+<span>    PrgSrvc_Suspend <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
+<span>      <span class="va">PrgSrvc_Suspend</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">~</span> <span class="st">"Paused or suspended services"</span>,</span>
+<span>      <span class="va">PrgSrvc_Suspend</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">97</span><span class="op">)</span> <span class="op">~</span> <span class="st">"Did not pause or suspend services"</span>,</span>
 <span>      .default <span class="op">=</span> <span class="cn">NA_character_</span></span>
 <span>    <span class="op">)</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
-<span><span class="va">before</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">GeoAreas_Local</span>, <span class="va">FinanceChng_Benefits</span><span class="op">)</span></span>
-<span><span class="co">#&gt;            GeoAreas_Local    FinanceChng_Benefits</span></span>
-<span><span class="co">#&gt; 1     Serving local areas        Benefits changed</span></span>
-<span><span class="co">#&gt; 2 Not serving local areas                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 3 Not serving local areas                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 4                    &lt;NA&gt;                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 5 Not serving local areas                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 6     Serving local areas Benefits did not change</span></span></code></pre></div>
+<span><span class="va">before</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">FinanceChng_Reserves</span>, <span class="va">PrgSrvc_Suspend</span><span class="op">)</span></span>
+<span><span class="co">#&gt;            FinanceChng_Reserves                   PrgSrvc_Suspend</span></span>
+<span><span class="co">#&gt; 1         Drew on cash reserves      Paused or suspended services</span></span>
+<span><span class="co">#&gt; 2 Did not draw on cash reserves Did not pause or suspend services</span></span>
+<span><span class="co">#&gt; 3 Did not draw on cash reserves Did not pause or suspend services</span></span>
+<span><span class="co">#&gt; 4         Drew on cash reserves      Paused or suspended services</span></span>
+<span><span class="co">#&gt; 5 Did not draw on cash reserves Did not pause or suspend services</span></span>
+<span><span class="co">#&gt; 6         Drew on cash reserves Did not pause or suspend services</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="after-8">After<a class="anchor" aria-label="anchor" href="#after-8"></a>
 </h3>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span></span>
 <span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>      GeoAreas_Local <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Serving local areas"</span>, <span class="st">"Not serving local areas"</span><span class="op">)</span>,</span>
-<span>      FinanceChng_Benefits <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Benefits changed"</span>, <span class="st">"Benefits did not change"</span><span class="op">)</span></span>
+<span>      FinanceChng_Reserves <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Drew on cash reserves"</span>,</span>
+<span>                               <span class="st">"Did not draw on cash reserves"</span><span class="op">)</span>,</span>
+<span>      PrgSrvc_Suspend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Paused or suspended services"</span>,</span>
+<span>                          <span class="st">"Did not pause or suspend services"</span><span class="op">)</span></span>
 <span>    <span class="op">)</span>,</span>
 <span>    na_values <span class="op">=</span> <span class="fl">97</span></span>
 <span>  <span class="op">)</span></span>
 <span></span>
-<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">GeoAreas_Local</span>, <span class="va">FinanceChng_Benefits</span><span class="op">)</span></span>
-<span><span class="co">#&gt;            GeoAreas_Local    FinanceChng_Benefits</span></span>
-<span><span class="co">#&gt; 1     Serving local areas        Benefits changed</span></span>
-<span><span class="co">#&gt; 2 Not serving local areas                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 3 Not serving local areas                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 4                    &lt;NA&gt;                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 5 Not serving local areas                    &lt;NA&gt;</span></span>
-<span><span class="co">#&gt; 6     Serving local areas Benefits did not change</span></span></code></pre></div>
+<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">FinanceChng_Reserves</span>, <span class="va">PrgSrvc_Suspend</span><span class="op">)</span></span>
+<span><span class="co">#&gt;            FinanceChng_Reserves                   PrgSrvc_Suspend</span></span>
+<span><span class="co">#&gt; 1         Drew on cash reserves      Paused or suspended services</span></span>
+<span><span class="co">#&gt; 2 Did not draw on cash reserves Did not pause or suspend services</span></span>
+<span><span class="co">#&gt; 3 Did not draw on cash reserves Did not pause or suspend services</span></span>
+<span><span class="co">#&gt; 4         Drew on cash reserves      Paused or suspended services</span></span>
+<span><span class="co">#&gt; 5 Did not draw on cash reserves Did not pause or suspend services</span></span>
+<span><span class="co">#&gt; 6         Drew on cash reserves Did not pause or suspend services</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="how-labels-works">How <code>labels</code> works<a class="anchor" aria-label="anchor" href="#how-labels-works"></a>
+</h3>
+<p>The <code>labels</code> argument is a named list. Each name is a
+column in your data, and each value is a length-2 character vector:
+<code>c("label when 1", "label when 0")</code>.</p>
+</div>
+<div class="section level3">
+<h3 id="option-na_values-for-sentinel-as-false">Option: <code>na_values</code> for sentinel-as-false<a class="anchor" aria-label="anchor" href="#option-na_values-for-sentinel-as-false"></a>
+</h3>
+<p>Some NTIS variables treat 97 (“not applicable”) the same as 0 (“no”).
+For example, if an organization answered “not applicable” to whether
+they drew on cash reserves, that effectively means they did not. Set
+<code>na_values = 97</code> to map 97 to the false (second) label
+instead of to <code>NA</code>.</p>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Without na_values: 97 becomes NA</span></span>
+<span><span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span></span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>FinanceChng_Reserves <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Drew"</span>, <span class="st">"Did not draw"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">FinanceChng_Reserves</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   FinanceChng_Reserves</span></span>
+<span><span class="co">#&gt; 1                 Drew</span></span>
+<span><span class="co">#&gt; 2         Did not draw</span></span>
+<span><span class="co">#&gt; 3                 &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 4                 Drew</span></span>
+<span><span class="co">#&gt; 5         Did not draw</span></span>
+<span><span class="co">#&gt; 6                 Drew</span></span>
+<span></span>
+<span><span class="co"># With na_values = 97: 97 maps to the false label</span></span>
+<span><span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span></span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>FinanceChng_Reserves <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Drew"</span>, <span class="st">"Did not draw"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    na_values <span class="op">=</span> <span class="fl">97</span></span>
+<span>  <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">FinanceChng_Reserves</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   FinanceChng_Reserves</span></span>
+<span><span class="co">#&gt; 1                 Drew</span></span>
+<span><span class="co">#&gt; 2         Did not draw</span></span>
+<span><span class="co">#&gt; 3         Did not draw</span></span>
+<span><span class="co">#&gt; 4                 Drew</span></span>
+<span><span class="co">#&gt; 5         Did not draw</span></span>
+<span><span class="co">#&gt; 6                 Drew</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="labeling-many-columns-at-once">Labeling many columns at once<a class="anchor" aria-label="anchor" href="#labeling-many-columns-at-once"></a>
+</h3>
+<p>In the extraction script, 16 <code>ProgDem_</code> columns are each
+labeled with a “Serving…” / “Not serving…” pair. You can handle them all
+in one call:</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># First recode to 0/1 (2 = secondary yes), then label</span></span>
+<span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/recode_binary.html">recode_binary</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ProgDem_Children"</span>, <span class="st">"ProgDem_Elders"</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span>labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>    ProgDem_Children <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Serving children and youth"</span>,</span>
+<span>                         <span class="st">"Not serving children and youth"</span><span class="op">)</span>,</span>
+<span>    ProgDem_Elders   <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Serving seniors"</span>,</span>
+<span>                         <span class="st">"Not serving seniors"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"ProgDem"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                 ProgDem_Children      ProgDem_Elders</span></span>
+<span><span class="co">#&gt; 1 Not serving children and youth     Serving seniors</span></span>
+<span><span class="co">#&gt; 2     Serving children and youth Not serving seniors</span></span>
+<span><span class="co">#&gt; 3     Serving children and youth                &lt;NA&gt;</span></span>
+<span><span class="co">#&gt; 4                           &lt;NA&gt;     Serving seniors</span></span>
+<span><span class="co">#&gt; 5 Not serving children and youth Not serving seniors</span></span>
+<span><span class="co">#&gt; 6     Serving children and youth     Serving seniors</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="option-custom-true_values-and-false_values">Option: custom <code>true_values</code> and
+<code>false_values</code><a class="anchor" aria-label="anchor" href="#option-custom-true_values-and-false_values"></a>
+</h3>
+<p>For variables that don’t use the standard 0/1 coding:</p>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># A column where 1,2 = "yes" and 3,4,5 = "no"</span></span>
+<span><span class="va">age_example</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>Dem_BChair_Age <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">5</span>, <span class="fl">97</span>, <span class="cn">NA</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span><span class="va">age_example</span>,</span>
+<span>  labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>Dem_BChair_Age <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Under 35"</span>, <span class="st">"35 or older"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  true_values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>  false_values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">4</span>, <span class="fl">5</span>, <span class="fl">6</span>, <span class="fl">7</span>, <span class="fl">8</span>, <span class="fl">9</span><span class="op">)</span>,</span>
+<span>  na_values <span class="op">=</span> <span class="fl">97</span></span>
+<span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">Dem_BChair_Age</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "Under 35"    "Under 35"    "35 or older" "35 or older" "35 or older"</span></span>
+<span><span class="co">#&gt; [6] NA</span></span></code></pre></div>
+<hr>
 </div>
 </div>
 <div class="section level2">
-<h2 id="label_likert-label-collapsed-likert-scales">10. <code>label_likert()</code> — Label collapsed Likert scales<a class="anchor" aria-label="anchor" href="#label_likert-label-collapsed-likert-scales"></a>
+<h2 id="label_likert-label-likert-scales-with-descriptive-strings">10. <code>label_likert()</code> — Label Likert scales with
+descriptive strings<a class="anchor" aria-label="anchor" href="#label_likert-label-likert-scales-with-descriptive-strings"></a>
 </h2>
-<p>Map numeric Likert-scale values to descriptive strings. Uses the same
-<code>mapping</code> vector approach as <code><a href="../reference/collapse_likert.html">collapse_likert()</a></code>,
-then indexes into labels. Values in <code>na_values</code> get
-<code>na_label</code> (default <code>"Unsure"</code>).</p>
+<p><strong>The problem:</strong> After (or instead of) collapsing Likert
+values to integers, you need descriptive string labels for reporting.
+The extraction script has 8+ <code><a href="https://dplyr.tidyverse.org/reference/across.html" class="external-link">across()</a></code> blocks doing this for
+different column groups, each with slightly different labels.</p>
+<p><code><a href="../reference/label_likert.html">label_likert()</a></code> uses the same <code>mapping</code> vector
+approach as <code><a href="../reference/collapse_likert.html">collapse_likert()</a></code>, then looks up the
+corresponding label. Values in <code>na_values</code> get
+<code>na_label</code> (default <code>"Unsure"</code>) instead of
+<code>NA</code>.</p>
 <div class="section level3">
 <h3 id="before-9">Before<a class="anchor" aria-label="anchor" href="#before-9"></a>
 </h3>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">before</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span></span>
 <span>    FinanceChng_Benefits <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when</a></span><span class="op">(</span></span>
@@ -593,7 +980,7 @@ then indexes into labels. Values in <code>na_values</code> get
 <div class="section level3">
 <h3 id="after-9">After<a class="anchor" aria-label="anchor" href="#after-9"></a>
 </h3>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
 <span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_Benefits"</span>,</span>
 <span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Decrease"</span>, <span class="st">"No change"</span>, <span class="st">"Increase"</span><span class="op">)</span><span class="op">)</span></span>
@@ -607,49 +994,164 @@ then indexes into labels. Values in <code>na_values</code> get
 <span><span class="co">#&gt; 5             Increase</span></span>
 <span><span class="co">#&gt; 6               Unsure</span></span></code></pre></div>
 </div>
+<div class="section level3">
+<h3 id="applying-different-labels-to-different-column-groups">Applying different labels to different column groups<a class="anchor" aria-label="anchor" href="#applying-different-labels-to-different-column-groups"></a>
+</h3>
+<p>The extraction script uses <code><a href="../reference/label_likert.html">label_likert()</a></code> for several
+groups of columns, each with different label text. You can chain
+multiple calls:</p>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">after</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_Benefits"</span>,</span>
+<span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Decrease"</span>, <span class="st">"No change"</span>, <span class="st">"Increase"</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_Salaries"</span>,</span>
+<span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Decrease in salaries"</span>, <span class="st">"No change"</span>,</span>
+<span>                          <span class="st">"Increase in salaries"</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_TotExp"</span>,</span>
+<span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Decrease in expenses"</span>, <span class="st">"No change"</span>,</span>
+<span>                          <span class="st">"Increase in expenses"</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">after</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="fu"><a href="https://tidyselect.r-lib.org/reference/starts_with.html" class="external-link">starts_with</a></span><span class="op">(</span><span class="st">"FinanceChng"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   FinanceChng_Benefits FinanceChng_Salaries   FinanceChng_TotExp</span></span>
+<span><span class="co">#&gt; 1             Decrease Increase in salaries Decrease in expenses</span></span>
+<span><span class="co">#&gt; 2             Decrease Increase in salaries            No change</span></span>
+<span><span class="co">#&gt; 3            No change            No change               Unsure</span></span>
+<span><span class="co">#&gt; 4             Increase Decrease in salaries Increase in expenses</span></span>
+<span><span class="co">#&gt; 5             Increase Decrease in salaries Decrease in expenses</span></span>
+<span><span class="co">#&gt; 6               Unsure               Unsure Increase in expenses</span></span>
+<span><span class="co">#&gt;   FinanceChng_Reserves</span></span>
+<span><span class="co">#&gt; 1                    1</span></span>
+<span><span class="co">#&gt; 2                    0</span></span>
+<span><span class="co">#&gt; 3                   97</span></span>
+<span><span class="co">#&gt; 4                    1</span></span>
+<span><span class="co">#&gt; 5                    0</span></span>
+<span><span class="co">#&gt; 6                    1</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="option-custom-na_label">Option: custom <code>na_label</code><a class="anchor" aria-label="anchor" href="#option-custom-na_label"></a>
+</h3>
+<p>The default <code>na_label</code> is <code>"Unsure"</code>, but you
+can change it:</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_Benefits"</span>,</span>
+<span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Decrease"</span>, <span class="st">"No change"</span>, <span class="st">"Increase"</span><span class="op">)</span>,</span>
+<span>               na_label <span class="op">=</span> <span class="st">"Not applicable"</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/select.html" class="external-link">select</a></span><span class="op">(</span><span class="va">FinanceChng_Benefits</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   FinanceChng_Benefits</span></span>
+<span><span class="co">#&gt; 1             Decrease</span></span>
+<span><span class="co">#&gt; 2             Decrease</span></span>
+<span><span class="co">#&gt; 3            No change</span></span>
+<span><span class="co">#&gt; 4             Increase</span></span>
+<span><span class="co">#&gt; 5             Increase</span></span>
+<span><span class="co">#&gt; 6       Not applicable</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="option-custom-mapping">Option: custom <code>mapping</code><a class="anchor" aria-label="anchor" href="#option-custom-mapping"></a>
+</h3>
+<p>The default <code>mapping = c(1, 1, 2, 3, 3)</code> collapses a
+5-point scale into 3 categories. You can provide a different mapping if
+your scale is different:</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># 3-point scale: keep each value as its own category</span></span>
+<span><span class="va">three_point</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>satisfaction <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">97</span><span class="op">)</span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="va">three_point</span>, <span class="st">"satisfaction"</span>,</span>
+<span>             labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Dissatisfied"</span>, <span class="st">"Neutral"</span>, <span class="st">"Satisfied"</span><span class="op">)</span>,</span>
+<span>             mapping <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/pull.html" class="external-link">pull</a></span><span class="op">(</span><span class="va">satisfaction</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "Dissatisfied" "Neutral"      "Satisfied"    "Unsure"</span></span></code></pre></div>
+<hr>
+</div>
 </div>
 <div class="section level2">
 <h2 id="putting-it-all-together">Putting it all together<a class="anchor" aria-label="anchor" href="#putting-it-all-together"></a>
 </h2>
-<p>In a real script, you can chain multiple ntistools calls in a single
-pipeline:</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<p>In a real NTIS cleaning script, you chain multiple ntistools calls
+into a single pipeline. Here’s a condensed example showing how the
+functions work together:</p>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cleaned</span> <span class="op">&lt;-</span> <span class="va">survey</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="co"># Step 1: Combine related binary indicators into summary columns</span></span>
 <span>  <span class="fu"><a href="../reference/combine_binary.html">combine_binary</a></span><span class="op">(</span><span class="va">GeoAreas_Locally</span>,</span>
 <span>                 <span class="va">GeoAreas_Local</span>, <span class="va">GeoAreas_MultipleLocal</span>,</span>
 <span>                 <span class="va">GeoAreas_RegionalWithin</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/combine_binary.html">combine_binary</a></span><span class="op">(</span><span class="va">GeoAreas_Multistate</span>,</span>
+<span>                 <span class="va">GeoAreas_MultipleState</span>, <span class="va">GeoAreas_RegionalAcross</span>,</span>
+<span>                 strict_na <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span></span>
+<span>  <span class="co"># Step 2: Create any/count/all summaries for disruption indicators</span></span>
 <span>  <span class="fu"><a href="../reference/count_binary.html">count_binary</a></span><span class="op">(</span><span class="st">"LLDisruption"</span>, <span class="va">LLLost</span>, <span class="va">LLDelay</span>, <span class="va">LLStop</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span></span>
+<span>  <span class="co"># Step 3: Recode multi-level demographics to simple 0/1</span></span>
 <span>  <span class="fu"><a href="../reference/recode_binary.html">recode_binary</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ProgDem_Children"</span>, <span class="st">"ProgDem_Elders"</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span></span>
+<span>  <span class="co"># Step 4: Remove sentinel values</span></span>
 <span>  <span class="fu"><a href="../reference/recode_sentinel.html">recode_sentinel</a></span><span class="op">(</span><span class="st">"DonImportance"</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span></span>
+<span>  <span class="co"># Step 5: Fill in valid-skip NAs using flag columns</span></span>
 <span>  <span class="fu"><a href="../reference/impute_from_flag.html">impute_from_flag</a></span><span class="op">(</span><span class="st">"PplSrv_NumWait"</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="../reference/collapse_likert.html">collapse_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_Benefits"</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/impute_from_flag.html">impute_from_flag</a></span><span class="op">(</span></span>
+<span>    vars <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Staff_RegVlntr_2023"</span>, <span class="st">"Staff_RegVlntr_2024"</span><span class="op">)</span>,</span>
+<span>    flag_map <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Staff_RegVlntr_2023 <span class="op">=</span> <span class="st">"Staff_RegVlntr_NA"</span>,</span>
+<span>                 Staff_RegVlntr_2024 <span class="op">=</span> <span class="st">"Staff_RegVlntr_NA"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span></span>
+<span>  <span class="co"># Step 6: Propagate parent answers to children</span></span>
 <span>  <span class="fu"><a href="../reference/propagate_parent.html">propagate_parent</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Regulations_Federal"</span>, <span class="st">"Regulations_State"</span><span class="op">)</span>,</span>
 <span>                   parent_var <span class="op">=</span> <span class="st">"Regulations"</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span></span>
+<span>  <span class="co"># Step 7: Zero out variables for ineligible respondents</span></span>
 <span>  <span class="fu"><a href="../reference/apply_filter.html">apply_filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"StaffVacancies"</span>, <span class="st">"BenefitsImpact"</span><span class="op">)</span>,</span>
 <span>               condition <span class="op">=</span> <span class="va">HaveStaff</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span>labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
-<span>    GeoAreas_Locally <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Serving locally"</span>, <span class="st">"Not serving locally"</span><span class="op">)</span></span>
-<span>  <span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
-<span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="st">"DonImportance"</span>,</span>
-<span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Low"</span>, <span class="st">"Medium"</span>, <span class="st">"High"</span><span class="op">)</span>,</span>
-<span>               mapping <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">2L</span>, <span class="fl">3L</span>, <span class="fl">3L</span><span class="op">)</span>,</span>
-<span>               na_values <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span></span>
+<span>  <span class="co"># Step 8: Label binary columns for reporting</span></span>
+<span>  <span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span></span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>      GeoAreas_Locally <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Serving locally"</span>, <span class="st">"Not serving locally"</span><span class="op">)</span>,</span>
+<span>      FinanceChng_Reserves <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Drew on reserves"</span>, <span class="st">"Did not draw"</span><span class="op">)</span>,</span>
+<span>      PrgSrvc_Suspend <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Paused services"</span>, <span class="st">"Did not pause"</span><span class="op">)</span></span>
+<span>    <span class="op">)</span>,</span>
+<span>    na_values <span class="op">=</span> <span class="fl">97</span></span>
+<span>  <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_binary.html">label_binary</a></span><span class="op">(</span></span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>      ProgDem_Children <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Serving children"</span>, <span class="st">"Not serving children"</span><span class="op">)</span>,</span>
+<span>      ProgDem_Elders <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Serving seniors"</span>, <span class="st">"Not serving seniors"</span><span class="op">)</span></span>
+<span>    <span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span></span>
+<span>  <span class="co"># Step 9: Label Likert scales for reporting</span></span>
+<span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"FinanceChng_Benefits"</span>, <span class="st">"FinanceChng_TotExp"</span><span class="op">)</span>,</span>
+<span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Decrease"</span>, <span class="st">"No change"</span>, <span class="st">"Increase"</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span></span>
+<span>  <span class="fu"><a href="../reference/label_likert.html">label_likert</a></span><span class="op">(</span><span class="st">"FinanceChng_Salaries"</span>,</span>
+<span>               labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Decrease in wages"</span>, <span class="st">"No change"</span>,</span>
+<span>                          <span class="st">"Increase in wages"</span><span class="op">)</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu"><a href="https://pillar.r-lib.org/reference/glimpse.html" class="external-link">glimpse</a></span><span class="op">(</span><span class="va">cleaned</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Rows: 6</span></span>
-<span><span class="co">#&gt; Columns: 22</span></span>
+<span><span class="co">#&gt; Columns: 32</span></span>
 <span><span class="co">#&gt; $ GeoAreas_Local          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ GeoAreas_MultipleLocal  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0</span></span>
 <span><span class="co">#&gt; $ GeoAreas_RegionalWithin <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0</span></span>
+<span><span class="co">#&gt; $ GeoAreas_MultipleState  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0</span></span>
+<span><span class="co">#&gt; $ GeoAreas_RegionalAcross <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ LLLost                  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ LLDelay                 <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 1<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ LLStop                  <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
-<span><span class="co">#&gt; $ ProgDem_Children        <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> 0<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
-<span><span class="co">#&gt; $ ProgDem_Elders          <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> 1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
-<span><span class="co">#&gt; $ DonImportance           <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "High"<span style="color: #949494;">, </span>"Low"<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>"Medium"<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>"High"</span></span>
+<span><span class="co">#&gt; $ ProgDem_Children        <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Not serving children"<span style="color: #949494;">, </span>"Serving children"<span style="color: #949494;">, </span>"S…</span></span>
+<span><span class="co">#&gt; $ ProgDem_Elders          <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Serving seniors"<span style="color: #949494;">, </span>"Not serving seniors"<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>…</span></span>
+<span><span class="co">#&gt; $ DonImportance           <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 3<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>2<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>4</span></span>
 <span><span class="co">#&gt; $ PplSrv_NumWait          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 50<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>10<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>30<span style="color: #949494;">, </span>0</span></span>
 <span><span class="co">#&gt; $ PplSrv_NumWait_NA_X     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
-<span><span class="co">#&gt; $ FinanceChng_Benefits    <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> 1<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>2<span style="color: #949494;">, </span>3<span style="color: #949494;">, </span>3<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span></span></span>
+<span><span class="co">#&gt; $ Staff_RegVlntr_2023     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span>5<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>10<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>3</span></span>
+<span><span class="co">#&gt; $ Staff_RegVlntr_2024     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 2<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>7<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>4</span></span>
+<span><span class="co">#&gt; $ Staff_RegVlntr_NA       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>0</span></span>
+<span><span class="co">#&gt; $ FinanceChng_Benefits    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Decrease"<span style="color: #949494;">, </span>"Decrease"<span style="color: #949494;">, </span>"No change"<span style="color: #949494;">, </span>"Increase…</span></span>
+<span><span class="co">#&gt; $ FinanceChng_Salaries    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Increase in wages"<span style="color: #949494;">, </span>"Increase in wages"<span style="color: #949494;">, </span>"No …</span></span>
+<span><span class="co">#&gt; $ FinanceChng_TotExp      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Decrease"<span style="color: #949494;">, </span>"No change"<span style="color: #949494;">, </span>"Unsure"<span style="color: #949494;">, </span>"Increase"<span style="color: #949494;">,</span>…</span></span>
+<span><span class="co">#&gt; $ FinanceChng_Reserves    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Drew on reserves"<span style="color: #949494;">, </span>"Did not draw"<span style="color: #949494;">, </span>"Did not d…</span></span>
+<span><span class="co">#&gt; $ PrgSrvc_Suspend         <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Paused services"<span style="color: #949494;">, </span>"Did not pause"<span style="color: #949494;">, </span>"Did not p…</span></span>
 <span><span class="co">#&gt; $ Regulations             <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>97<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ Regulations_Federal     <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>97<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ Regulations_State       <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>97<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
@@ -657,11 +1159,110 @@ pipeline:</p>
 <span><span class="co">#&gt; $ StaffVacancies          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 3<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ BenefitsImpact          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> 2<span style="color: #949494;">, </span>3<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>4<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>3</span></span>
 <span><span class="co">#&gt; $ GeoAreas_Locally        <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> "Serving locally"<span style="color: #949494;">, </span>"Not serving locally"<span style="color: #949494;">, </span>"Ser…</span></span>
+<span><span class="co">#&gt; $ GeoAreas_Multistate     <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> 0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ LLDisruption_any        <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> 1<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span>
 <span><span class="co">#&gt; $ LLDisruption_count      <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> 2<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span>1<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>3</span></span>
 <span><span class="co">#&gt; $ LLDisruption_all        <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> 0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>0<span style="color: #949494;">, </span><span style="color: #BB0000;">NA</span><span style="color: #949494;">, </span>0<span style="color: #949494;">, </span>1</span></span></code></pre></div>
 <p>What used to be hundreds of lines of repetitive
-<code><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when()</a></code> calls becomes a single, readable pipeline.</p>
+<code><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when()</a></code> calls becomes a single, readable pipeline. Each
+step has a clear name that tells you what it does, and the options are
+explicit rather than buried in copy-pasted code.</p>
+<hr>
+</div>
+<div class="section level2">
+<h2 id="quick-reference">Quick reference<a class="anchor" aria-label="anchor" href="#quick-reference"></a>
+</h2>
+<table class="table">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="25%">
+<col width="25%">
+</colgroup>
+<thead><tr class="header">
+<th>Function</th>
+<th>Input</th>
+<th>Output</th>
+<th>Key options</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code><a href="../reference/combine_binary.html">combine_binary()</a></code></td>
+<td>0/1 columns</td>
+<td>Single 0/1 column</td>
+<td><code>strict_na</code></td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/count_binary.html">count_binary()</a></code></td>
+<td>0/1 columns</td>
+<td>
+<code>_any</code>, <code>_count</code>, <code>_all</code>
+columns</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/recode_binary.html">recode_binary()</a></code></td>
+<td>Multi-level numeric</td>
+<td>0/1 integer</td>
+<td>
+<code>ones</code>, <code>zeros</code>, <code>na_values</code>
+</td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/recode_sentinel.html">recode_sentinel()</a></code></td>
+<td>Numeric with sentinels</td>
+<td>Numeric with NA</td>
+<td><code>values</code></td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/impute_from_flag.html">impute_from_flag()</a></code></td>
+<td>Numeric + flag column</td>
+<td>Numeric (NAs filled)</td>
+<td>
+<code>flag_suffix</code>, <code>flag_map</code>,
+<code>impute_value</code>
+</td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/collapse_likert.html">collapse_likert()</a></code></td>
+<td>5-point Likert</td>
+<td>3-category integer</td>
+<td>
+<code>mapping</code>, <code>na_values</code>
+</td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/propagate_parent.html">propagate_parent()</a></code></td>
+<td>Parent + child columns</td>
+<td>Children updated</td>
+<td><code>values</code></td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/apply_filter.html">apply_filter()</a></code></td>
+<td>Any columns + condition</td>
+<td>Columns with NAs added</td>
+<td><code>condition</code></td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/label_binary.html">label_binary()</a></code></td>
+<td>0/1 columns</td>
+<td>Character columns</td>
+<td>
+<code>true_values</code>, <code>false_values</code>,
+<code>na_values</code>
+</td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/label_likert.html">label_likert()</a></code></td>
+<td>Likert numeric</td>
+<td>Character columns</td>
+<td>
+<code>mapping</code>, <code>labels</code>, <code>na_values</code>,
+<code>na_label</code>
+</td>
+</tr>
+</tbody>
+</table>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
