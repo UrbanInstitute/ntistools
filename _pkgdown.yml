@@ -3,6 +3,9 @@ url: https://urbaninstitute.github.io/ntistools/
 template:
   bootstrap: 5
 
+home:
+  strip_header: true
+
 reference:
   - title: "Recode & Collapse"
     desc: "Transform numeric survey codes into standardized values."
