@@ -5,8 +5,8 @@ library(tidyverse)
 library(dplyr)
 
 ##### Import datasets #####
-setwd("Y:/CNP/Generosity Commission/Year 5/Restricted Dataset")
-d5 <- read.csv("RESTRICTED_Y5.csv")
+# Update this path to point to your local copy of the survey data
+d5 <- read.csv("path/to/your/survey_data.csv")
 
 ##### Clean data #####
 ###### GeoAreas variables ######

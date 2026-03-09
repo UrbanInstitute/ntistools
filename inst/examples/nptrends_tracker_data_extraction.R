@@ -9,6 +9,10 @@ library(stats)
 library(ntistools)
 
 # Helper functions
+# config.R defines: nptrends_y4_raw_path, nptrends_y5_raw_path,
+#   survey_analysis_vars, percent_vars, numstaff_vars, multi_select_cols,
+#   total_expenditure_cols, grant_value_change_cols, ceo_bchair_binary_ls,
+#   binary_rcv_cols_ls, percentdem_vars
 source(here::here("R", "config.R"))
 
 # Load in raw survey data

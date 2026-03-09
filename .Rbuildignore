@@ -2,3 +2,8 @@
 ^Meta$
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.github$
+^_pkgdown\.yml$
+^pkgdown$
+^CLAUDE\.md$
+^prompts$

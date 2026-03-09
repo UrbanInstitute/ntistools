@@ -50,10 +50,24 @@ rsconnect/
 
 # Raw data / PII - never commit survey microdata
 data-raw/
+data/
 *.csv
 *.xlsx
 *.sav
 *.dta
 *.sas7bdat
+*.rds
+*.rda
+*.RData
+*.parquet
 /doc/
 /Meta/
+
+# Internal development prompts
+prompts/
+
+# Credentials and secrets
+.env
+.env.*
+*.pem
+*.key

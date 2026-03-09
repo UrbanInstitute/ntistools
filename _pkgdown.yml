@@ -1,0 +1,35 @@
+url: https://urbaninstitute.github.io/ntistools/
+
+template:
+  bootstrap: 5
+
+reference:
+  - title: "Recode & Collapse"
+    desc: "Transform numeric survey codes into standardized values."
+    contents:
+      - recode_binary
+      - recode_sentinel
+      - collapse_likert
+
+  - title: "Label"
+    desc: "Convert numeric codes to human-readable strings."
+    contents:
+      - label_binary
+      - label_likert
+
+  - title: "Combine & Count"
+    desc: "Aggregate multiple binary indicators into summary columns."
+    contents:
+      - combine_binary
+      - count_binary
+
+  - title: "Impute & Propagate"
+    desc: "Fill or override values based on flag or parent columns."
+    contents:
+      - impute_from_flag
+      - propagate_parent
+
+  - title: "Filter"
+    desc: "Conditionally set variables to NA for ineligible respondents."
+    contents:
+      - apply_filter
