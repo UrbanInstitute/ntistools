@@ -4,7 +4,13 @@
 \alias{impute_from_flag}
 \title{Replace NA with a value when a flag column indicates the skip is valid}
 \usage{
-impute_from_flag(data, vars, flag_suffix = "_NA_X", impute_value = 0)
+impute_from_flag(
+  data,
+  vars,
+  flag_suffix = "_NA_X",
+  impute_value = 0,
+  flag_map = NULL
+)
 }
 \arguments{
 \item{data}{A data frame.}
@@ -16,6 +22,11 @@ column. Defaults to \code{"_NA_X"}.}
 
 \item{impute_value}{Value to impute when the flag is 1 and the variable is
 NA. Defaults to \code{0}.}
+
+\item{flag_map}{Optional named character vector mapping variable names to
+flag column names. When provided, overrides \code{paste0(var, flag_suffix)} for
+matched names. For example,
+\code{c("Staff_RegVlntr_2023" = "Staff_RegVlntr_NA")}.}
 }
 \value{
 \code{data} with imputed values.
@@ -28,4 +39,8 @@ For each variable in \code{vars}, looks for a corresponding flag column named
 \examples{
 d <- data.frame(x = c(1, NA, 3), x_NA_X = c(0, 1, 0))
 impute_from_flag(d, "x")
+
+# Using flag_map for non-standard flag column names
+d2 <- data.frame(val_2023 = c(NA, 5), val_flag = c(1, 0))
+impute_from_flag(d2, "val_2023", flag_map = c(val_2023 = "val_flag"))
 }

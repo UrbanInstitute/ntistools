@@ -307,6 +307,79 @@ after <- survey %>%
 after %>% select(HaveStaff, StaffVacancies, BenefitsImpact)
 ```
 
+## 9. `label_binary()` --- Convert 0/1 to descriptive labels
+
+Turn binary indicators into human-readable strings. Values in `na_values`
+(e.g., 97) map to the false label.
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(
+    GeoAreas_Local = case_when(
+      GeoAreas_Local == 1 ~ "Serving local areas",
+      GeoAreas_Local == 0 ~ "Not serving local areas",
+      .default = NA_character_
+    ),
+    FinanceChng_Benefits = case_when(
+      FinanceChng_Benefits == 1 ~ "Benefits changed",
+      FinanceChng_Benefits %in% c(0, 97) ~ "Benefits did not change",
+      .default = NA_character_
+    )
+  )
+
+before %>% select(GeoAreas_Local, FinanceChng_Benefits)
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  label_binary(
+    labels = list(
+      GeoAreas_Local = c("Serving local areas", "Not serving local areas"),
+      FinanceChng_Benefits = c("Benefits changed", "Benefits did not change")
+    ),
+    na_values = 97
+  )
+
+after %>% select(GeoAreas_Local, FinanceChng_Benefits)
+```
+
+## 10. `label_likert()` --- Label collapsed Likert scales
+
+Map numeric Likert-scale values to descriptive strings. Uses the same
+`mapping` vector approach as `collapse_likert()`, then indexes into labels.
+Values in `na_values` get `na_label` (default `"Unsure"`).
+
+### Before
+
+```{r}
+before <- survey %>%
+  mutate(
+    FinanceChng_Benefits = case_when(
+      FinanceChng_Benefits %in% c(1, 2) ~ "Decrease",
+      FinanceChng_Benefits == 3 ~ "No change",
+      FinanceChng_Benefits %in% c(4, 5) ~ "Increase",
+      FinanceChng_Benefits == 97 ~ "Unsure",
+      .default = NA_character_
+    )
+  )
+
+before %>% select(FinanceChng_Benefits)
+```
+
+### After
+
+```{r}
+after <- survey %>%
+  label_likert("FinanceChng_Benefits",
+               labels = c("Decrease", "No change", "Increase"))
+
+after %>% select(FinanceChng_Benefits)
+```
+
 ## Putting it all together
 
 In a real script, you can chain multiple ntistools calls in a single pipeline:
@@ -324,7 +397,14 @@ cleaned <- survey %>%
   propagate_parent(c("Regulations_Federal", "Regulations_State"),
                    parent_var = "Regulations") %>%
   apply_filter(c("StaffVacancies", "BenefitsImpact"),
-               condition = HaveStaff == 1)
+               condition = HaveStaff == 1) %>%
+  label_binary(labels = list(
+    GeoAreas_Locally = c("Serving locally", "Not serving locally")
+  )) %>%
+  label_likert("DonImportance",
+               labels = c("Low", "Medium", "High"),
+               mapping = c(1L, 2L, 3L, 3L),
+               na_values = NULL)
 
 glimpse(cleaned)
 ```

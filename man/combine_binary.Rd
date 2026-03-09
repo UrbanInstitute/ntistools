@@ -4,7 +4,7 @@
 \alias{combine_binary}
 \title{Combine binary indicators with OR logic}
 \usage{
-combine_binary(data, new_col, ...)
+combine_binary(data, new_col, ..., strict_na = FALSE)
 }
 \arguments{
 \item{data}{A data frame.}
@@ -12,6 +12,10 @@ combine_binary(data, new_col, ...)
 \item{new_col}{Unquoted name for the new column.}
 
 \item{...}{Unquoted names of binary (0/1) columns to combine.}
+
+\item{strict_na}{Logical. When \code{TRUE}, return NA if \emph{any} source column is
+NA (unless at least one source is 1). When \code{FALSE} (default), return NA
+only when \emph{all} source columns are NA.}
 }
 \value{
 \code{data} with the new column added.
@@ -23,4 +27,8 @@ column is 1, NA if \emph{all} source columns are NA, and 0 otherwise.
 \examples{
 d <- data.frame(a = c(0, 1, NA, 0), b = c(0, 0, NA, 1))
 combine_binary(d, ab, a, b)
+
+# strict_na: NA poisons the result unless a 1 is present
+d2 <- data.frame(a = c(0, NA), b = c(NA, NA))
+combine_binary(d2, ab, a, b, strict_na = TRUE)
 }

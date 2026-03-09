@@ -24,3 +24,28 @@ test_that("impute_from_flag handles multiple vars", {
   expect_equal(result$a, c(0, 2))
   expect_equal(result$b, c(NA, 0))
 })
+
+test_that("impute_from_flag uses flag_map to override flag column lookup", {
+  d <- data.frame(
+    Staff_RegVlntr_2023 = c(NA, 5, NA),
+    Staff_RegVlntr_NA = c(1, 0, 0)
+  )
+  result <- impute_from_flag(
+    d, "Staff_RegVlntr_2023",
+    flag_map = c(Staff_RegVlntr_2023 = "Staff_RegVlntr_NA")
+  )
+  expect_equal(result$Staff_RegVlntr_2023, c(0, 5, NA))
+})
+
+test_that("impute_from_flag flag_map works alongside suffix for other vars", {
+  d <- data.frame(
+    a_2023 = c(NA, 10), a_flag = c(1, 0),
+    b = c(NA, NA), b_NA_X = c(1, 0)
+  )
+  result <- impute_from_flag(
+    d, c("a_2023", "b"),
+    flag_map = c(a_2023 = "a_flag")
+  )
+  expect_equal(result$a_2023, c(0, 10))
+  expect_equal(result$b, c(0, NA))
+})
