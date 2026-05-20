@@ -16,6 +16,7 @@ Institute](https://www.urban.org/).
 Install the development version from GitHub:
 
 ``` r
+
 # install.packages("pak")
 pak::pak("UrbanInstitute/ntistools")
 ```
@@ -23,6 +24,7 @@ pak::pak("UrbanInstitute/ntistools")
 Or using `remotes`:
 
 ``` r
+
 # install.packages("remotes")
 remotes::install_github("UrbanInstitute/ntistools")
 ```
@@ -33,37 +35,38 @@ ntistools exports 10 functions organized into four categories:
 
 ### Recode and collapse
 
-| Function                                                                                       | Description                                                             |
-|------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| [`recode_binary()`](https://urbaninstitute.github.io/ntistools/reference/recode_binary.md)     | Collapse multi-level values into 0/1 (e.g., 0 = no, 1&2 = yes, 98 = NA) |
-| [`recode_sentinel()`](https://urbaninstitute.github.io/ntistools/reference/recode_sentinel.md) | Replace sentinel values (e.g., 98 = “don’t know”) with `NA`             |
-| [`collapse_likert()`](https://urbaninstitute.github.io/ntistools/reference/collapse_likert.md) | Collapse a 5-point Likert scale into 3 categories                       |
+| Function | Description |
+|----|----|
+| [`recode_binary()`](https://urbaninstitute.github.io/ntistools/reference/recode_binary.md) | Collapse multi-level values into 0/1 (e.g., 0 = no, 1&2 = yes, 98 = NA) |
+| [`recode_sentinel()`](https://urbaninstitute.github.io/ntistools/reference/recode_sentinel.md) | Replace sentinel values (e.g., 98 = “don’t know”) with `NA` |
+| [`collapse_likert()`](https://urbaninstitute.github.io/ntistools/reference/collapse_likert.md) | Collapse a 5-point Likert scale into 3 categories |
 
 ### Label
 
-| Function                                                                                 | Description                                                                                        |
-|------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
-| [`label_binary()`](https://urbaninstitute.github.io/ntistools/reference/label_binary.md) | Convert 0/1 columns to descriptive strings (e.g., `"Yes"` / `"No"`)                                |
+| Function | Description |
+|----|----|
+| [`label_binary()`](https://urbaninstitute.github.io/ntistools/reference/label_binary.md) | Convert 0/1 columns to descriptive strings (e.g., `"Yes"` / `"No"`) |
 | [`label_likert()`](https://urbaninstitute.github.io/ntistools/reference/label_likert.md) | Map Likert-scale values to descriptive strings (e.g., `"Decrease"` / `"No change"` / `"Increase"`) |
 
 ### Combine and count
 
-| Function                                                                                     | Description                                                                  |
-|----------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| Function | Description |
+|----|----|
 | [`combine_binary()`](https://urbaninstitute.github.io/ntistools/reference/combine_binary.md) | OR-combine several 0/1 columns into one (1 if any = 1, NA if all NA, else 0) |
-| [`count_binary()`](https://urbaninstitute.github.io/ntistools/reference/count_binary.md)     | Create `_any`, `_count`, and `_all` summary columns from binary indicators   |
+| [`count_binary()`](https://urbaninstitute.github.io/ntistools/reference/count_binary.md) | Create `_any`, `_count`, and `_all` summary columns from binary indicators |
 
 ### Impute, propagate, and filter
 
-| Function                                                                                         | Description                                                                 |
-|--------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| Function | Description |
+|----|----|
 | [`impute_from_flag()`](https://urbaninstitute.github.io/ntistools/reference/impute_from_flag.md) | Replace NA with a value when a companion flag column indicates a valid skip |
-| [`propagate_parent()`](https://urbaninstitute.github.io/ntistools/reference/propagate_parent.md) | Push a parent question’s value (e.g., 0 or 97) to all child columns         |
-| [`apply_filter()`](https://urbaninstitute.github.io/ntistools/reference/apply_filter.md)         | Set variables to NA for respondents who don’t meet a condition              |
+| [`propagate_parent()`](https://urbaninstitute.github.io/ntistools/reference/propagate_parent.md) | Push a parent question’s value (e.g., 0 or 97) to all child columns |
+| [`apply_filter()`](https://urbaninstitute.github.io/ntistools/reference/apply_filter.md) | Set variables to NA for respondents who don’t meet a condition |
 
 ## Usage
 
 ``` r
+
 library(ntistools)
 library(dplyr)
 

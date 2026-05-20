@@ -55,18 +55,18 @@ Standard R package layout using `roxygen2` workflow:
 
 ## Exported Functions (10)
 
-| Function           | Purpose                                                  |
-|--------------------|----------------------------------------------------------|
-| `recode_binary`    | Collapse multi-level to 0/1                              |
-| `recode_sentinel`  | Replace sentinel values with NA                          |
-| `collapse_likert`  | Collapse 5-point Likert to 3 categories (integers)       |
-| `label_binary`     | Map 0/1 to descriptive string labels                     |
-| `label_likert`     | Map Likert values to descriptive string labels           |
-| `combine_binary`   | OR-combine binary columns into one                       |
-| `count_binary`     | Create \_any/\_count/\_all summaries from binary columns |
-| `impute_from_flag` | Replace NA when flag column indicates valid skip         |
-| `propagate_parent` | Push parent value to child columns                       |
-| `apply_filter`     | Set vars to NA for ineligible respondents                |
+| Function | Purpose |
+|----|----|
+| `recode_binary` | Collapse multi-level to 0/1 |
+| `recode_sentinel` | Replace sentinel values with NA |
+| `collapse_likert` | Collapse 5-point Likert to 3 categories (integers) |
+| `label_binary` | Map 0/1 to descriptive string labels |
+| `label_likert` | Map Likert values to descriptive string labels |
+| `combine_binary` | OR-combine binary columns into one |
+| `count_binary` | Create \_any/\_count/\_all summaries from binary columns |
+| `impute_from_flag` | Replace NA when flag column indicates valid skip |
+| `propagate_parent` | Push parent value to child columns |
+| `apply_filter` | Set vars to NA for ineligible respondents |
 
 ## Key Conventions
 

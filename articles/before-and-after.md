@@ -9,6 +9,7 @@ collapsing Likert scales, labeling columns, and so on. A typical script
 might contain 20+ blocks of nearly identical code like this:
 
 ``` r
+
 # This same pattern, repeated for every binary variable...
 ProgDem_Veterans = case_when(
   ProgDem_Veterans == 1 ~ "Serving veterans",
@@ -30,6 +31,7 @@ real NTIS survey data. Each column represents a common pattern you’ll
 encounter:
 
 ``` r
+
 library(ntistools)
 library(dplyr)
 
@@ -98,6 +100,7 @@ extraction script, `GeoAreas_Local`, `GeoAreas_MultipleLocal`, and
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(
     GeoAreas_Locally = case_when(
@@ -130,6 +133,7 @@ before %>% select(starts_with("GeoAreas_L"), GeoAreas_MultipleLocal,
 ### After
 
 ``` r
+
 after <- survey %>%
   combine_binary(GeoAreas_Locally,
                  GeoAreas_Local, GeoAreas_MultipleLocal,
@@ -166,6 +170,7 @@ function used in older NTIS scripts. Set `strict_na = TRUE` to get this
 behavior.
 
 ``` r
+
 # Data where one source is 0 and the other is NA
 strict_example <- data.frame(
   a = c(0,  1,  NA, 0),
@@ -211,6 +216,7 @@ All three are NA when every source column is NA.
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(
     LLDisruption_any = case_when(
@@ -243,6 +249,7 @@ before %>% select(starts_with("LL"))
 ### After
 
 ``` r
+
 after <- survey %>%
   count_binary("LLDisruption", LLLost, LLDelay, LLStop)
 
@@ -274,6 +281,7 @@ columns go through this step.
 ### Before
 
 ``` r
+
 recode_progdem <- function(x) {
   case_when(
     x == 0 ~ 0, x == 1 ~ 1, x == 2 ~ 1,
@@ -298,6 +306,7 @@ before %>% select(starts_with("ProgDem"))
 ### After
 
 ``` r
+
 after <- survey %>%
   recode_binary(c("ProgDem_Children", "ProgDem_Elders"))
 
@@ -317,6 +326,7 @@ The defaults (`ones = c(1, 2)`, `zeros = 0`, `na_values = 98`) work for
 `ProgDem_` columns, but you can customize them for other patterns:
 
 ``` r
+
 # Example: a column where 1-3 mean "yes" and 4-5 mean "no"
 custom_example <- data.frame(rating = c(1, 2, 3, 4, 5, 98))
 
@@ -338,6 +348,7 @@ extraction script removes 98s from dozens of columns before analysis.
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(across(
     all_of("DonImportance"),
@@ -357,6 +368,7 @@ before %>% select(DonImportance)
 ### After
 
 ``` r
+
 after <- survey %>%
   recode_sentinel("DonImportance")
 
@@ -377,6 +389,7 @@ By default,
 removes 98. You can change which values to remove:
 
 ``` r
+
 # Remove both 97 and 98
 survey %>%
   recode_sentinel("DonImportance", values = c(97, 98)) %>%
@@ -403,6 +416,7 @@ no waitlist), the value is `NA` but a companion flag column (e.g.,
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(
     PplSrv_NumWait = case_when(
@@ -424,6 +438,7 @@ before %>% select(starts_with("PplSrv"))
 ### After
 
 ``` r
+
 after <- survey %>%
   impute_from_flag("PplSrv_NumWait")
 
@@ -448,6 +463,7 @@ Use `flag_map` to tell the function exactly which flag column to use for
 each variable:
 
 ``` r
+
 # Before: six separate case_when blocks in the extraction script
 before <- survey %>%
   mutate(
@@ -472,6 +488,7 @@ before %>% select(starts_with("Staff_RegVlntr"))
 ```
 
 ``` r
+
 # After: one call handles both year columns
 after <- survey %>%
   impute_from_flag(
@@ -514,6 +531,7 @@ mid, 3 = high), with 97 set to NA. The default
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(
     FinanceChng_Benefits = case_match(
@@ -540,6 +558,7 @@ before %>% select(FinanceChng_Benefits)
 ### After
 
 ``` r
+
 after <- survey %>%
   collapse_likert("FinanceChng_Benefits")
 
@@ -559,6 +578,7 @@ In the extraction script, many Likert columns are collapsed using the
 same mapping. Pass a character vector of column names:
 
 ``` r
+
 likert_cols <- c("FinanceChng_Benefits", "FinanceChng_Salaries",
                  "FinanceChng_TotExp")
 
@@ -586,6 +606,7 @@ inherit that value instead of being left as NA.
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(across(
     c(Regulations_Federal, Regulations_State),
@@ -609,6 +630,7 @@ before %>% select(starts_with("Regulations"))
 ### After
 
 ``` r
+
 after <- survey %>%
   propagate_parent(c("Regulations_Federal", "Regulations_State"),
                    parent_var = "Regulations")
@@ -629,6 +651,7 @@ By default, `values = c(0, 97)` (both “no” and “not applicable”
 propagate). You can change this:
 
 ``` r
+
 # Only propagate 0 (not 97)
 survey %>%
   propagate_parent(c("Regulations_Federal", "Regulations_State"),
@@ -656,6 +679,7 @@ staff, these values should be set to NA so they don’t affect analysis.
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(across(
     c(StaffVacancies, BenefitsImpact),
@@ -675,6 +699,7 @@ before %>% select(HaveStaff, StaffVacancies, BenefitsImpact)
 ### After
 
 ``` r
+
 after <- survey %>%
   apply_filter(c("StaffVacancies", "BenefitsImpact"),
                condition = HaveStaff == 1)
@@ -710,6 +735,7 @@ replaces all of them in a single call.
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(
     FinanceChng_Reserves = case_when(
@@ -737,6 +763,7 @@ before %>% select(FinanceChng_Reserves, PrgSrvc_Suspend)
 ### After
 
 ``` r
+
 after <- survey %>%
   label_binary(
     labels = list(
@@ -773,6 +800,7 @@ they drew on cash reserves, that effectively means they did not. Set
 `NA`.
 
 ``` r
+
 # Without na_values: 97 becomes NA
 survey %>%
   label_binary(
@@ -809,6 +837,7 @@ In the extraction script, 16 `ProgDem_` columns are each labeled with a
 “Serving…” / “Not serving…” pair. You can handle them all in one call:
 
 ``` r
+
 # First recode to 0/1 (2 = secondary yes), then label
 after <- survey %>%
   recode_binary(c("ProgDem_Children", "ProgDem_Elders")) %>%
@@ -834,6 +863,7 @@ after %>% select(starts_with("ProgDem"))
 For variables that don’t use the standard 0/1 coding:
 
 ``` r
+
 # A column where 1,2 = "yes" and 3,4,5 = "no"
 age_example <- data.frame(Dem_BChair_Age = c(1, 2, 3, 5, 97, NA))
 
@@ -868,6 +898,7 @@ then looks up the corresponding label. Values in `na_values` get
 ### Before
 
 ``` r
+
 before <- survey %>%
   mutate(
     FinanceChng_Benefits = case_when(
@@ -892,6 +923,7 @@ before %>% select(FinanceChng_Benefits)
 ### After
 
 ``` r
+
 after <- survey %>%
   label_likert("FinanceChng_Benefits",
                labels = c("Decrease", "No change", "Increase"))
@@ -914,6 +946,7 @@ for several groups of columns, each with different label text. You can
 chain multiple calls:
 
 ``` r
+
 after <- survey %>%
   label_likert("FinanceChng_Benefits",
                labels = c("Decrease", "No change", "Increase")) %>%
@@ -946,6 +979,7 @@ after %>% select(starts_with("FinanceChng"))
 The default `na_label` is `"Unsure"`, but you can change it:
 
 ``` r
+
 survey %>%
   label_likert("FinanceChng_Benefits",
                labels = c("Decrease", "No change", "Increase"),
@@ -967,6 +1001,7 @@ The default `mapping = c(1, 1, 2, 3, 3)` collapses a 5-point scale into
 different:
 
 ``` r
+
 # 3-point scale: keep each value as its own category
 three_point <- data.frame(satisfaction = c(1, 2, 3, 97))
 
@@ -986,6 +1021,7 @@ a single pipeline. Here’s a condensed example showing how the functions
 work together:
 
 ``` r
+
 cleaned <- survey %>%
   # Step 1: Combine related binary indicators into summary columns
   combine_binary(GeoAreas_Locally,
@@ -1090,15 +1126,15 @@ buried in copy-pasted code.
 
 ## Quick reference
 
-| Function                                                                                         | Input                   | Output                           | Key options                                  |
-|--------------------------------------------------------------------------------------------------|-------------------------|----------------------------------|----------------------------------------------|
-| [`combine_binary()`](https://urbaninstitute.github.io/ntistools/reference/combine_binary.md)     | 0/1 columns             | Single 0/1 column                | `strict_na`                                  |
-| [`count_binary()`](https://urbaninstitute.github.io/ntistools/reference/count_binary.md)         | 0/1 columns             | `_any`, `_count`, `_all` columns | —                                            |
-| [`recode_binary()`](https://urbaninstitute.github.io/ntistools/reference/recode_binary.md)       | Multi-level numeric     | 0/1 integer                      | `ones`, `zeros`, `na_values`                 |
-| [`recode_sentinel()`](https://urbaninstitute.github.io/ntistools/reference/recode_sentinel.md)   | Numeric with sentinels  | Numeric with NA                  | `values`                                     |
-| [`impute_from_flag()`](https://urbaninstitute.github.io/ntistools/reference/impute_from_flag.md) | Numeric + flag column   | Numeric (NAs filled)             | `flag_suffix`, `flag_map`, `impute_value`    |
-| [`collapse_likert()`](https://urbaninstitute.github.io/ntistools/reference/collapse_likert.md)   | 5-point Likert          | 3-category integer               | `mapping`, `na_values`                       |
-| [`propagate_parent()`](https://urbaninstitute.github.io/ntistools/reference/propagate_parent.md) | Parent + child columns  | Children updated                 | `values`                                     |
-| [`apply_filter()`](https://urbaninstitute.github.io/ntistools/reference/apply_filter.md)         | Any columns + condition | Columns with NAs added           | `condition`                                  |
-| [`label_binary()`](https://urbaninstitute.github.io/ntistools/reference/label_binary.md)         | 0/1 columns             | Character columns                | `true_values`, `false_values`, `na_values`   |
-| [`label_likert()`](https://urbaninstitute.github.io/ntistools/reference/label_likert.md)         | Likert numeric          | Character columns                | `mapping`, `labels`, `na_values`, `na_label` |
+| Function | Input | Output | Key options |
+|----|----|----|----|
+| [`combine_binary()`](https://urbaninstitute.github.io/ntistools/reference/combine_binary.md) | 0/1 columns | Single 0/1 column | `strict_na` |
+| [`count_binary()`](https://urbaninstitute.github.io/ntistools/reference/count_binary.md) | 0/1 columns | `_any`, `_count`, `_all` columns | — |
+| [`recode_binary()`](https://urbaninstitute.github.io/ntistools/reference/recode_binary.md) | Multi-level numeric | 0/1 integer | `ones`, `zeros`, `na_values` |
+| [`recode_sentinel()`](https://urbaninstitute.github.io/ntistools/reference/recode_sentinel.md) | Numeric with sentinels | Numeric with NA | `values` |
+| [`impute_from_flag()`](https://urbaninstitute.github.io/ntistools/reference/impute_from_flag.md) | Numeric + flag column | Numeric (NAs filled) | `flag_suffix`, `flag_map`, `impute_value` |
+| [`collapse_likert()`](https://urbaninstitute.github.io/ntistools/reference/collapse_likert.md) | 5-point Likert | 3-category integer | `mapping`, `na_values` |
+| [`propagate_parent()`](https://urbaninstitute.github.io/ntistools/reference/propagate_parent.md) | Parent + child columns | Children updated | `values` |
+| [`apply_filter()`](https://urbaninstitute.github.io/ntistools/reference/apply_filter.md) | Any columns + condition | Columns with NAs added | `condition` |
+| [`label_binary()`](https://urbaninstitute.github.io/ntistools/reference/label_binary.md) | 0/1 columns | Character columns | `true_values`, `false_values`, `na_values` |
+| [`label_likert()`](https://urbaninstitute.github.io/ntistools/reference/label_likert.md) | Likert numeric | Character columns | `mapping`, `labels`, `na_values`, `na_label` |
