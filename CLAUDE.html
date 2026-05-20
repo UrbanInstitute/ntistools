@@ -82,7 +82,7 @@
 <strong>.github/workflows/</strong>: GitHub Actions for pkgdown deployment.</li>
 </ul></div>
 <div class="section level2">
-<h2 id="exported-functions-13">Exported Functions (13)<a class="anchor" aria-label="anchor" href="#exported-functions-13"></a></h2>
+<h2 id="exported-functions-18">Exported Functions (18)<a class="anchor" aria-label="anchor" href="#exported-functions-18"></a></h2>
 <table class="table"><colgroup><col width="50%"><col width="50%"></colgroup><thead><tr><th>Function</th>
 <th>Purpose</th>
 </tr></thead><tbody><tr><td><code>recode_binary</code></td>
@@ -111,7 +111,21 @@
 <td>Weighted proportion / mean / median per group</td>
 </tr><tr><td><code>summarize_by_groups</code></td>
 <td>Run <code>calc_summarize</code> over many <code>var = metric</code> pairs</td>
+</tr><tr><td><code>survey_ci</code></td>
+<td>Weighted means with confidence intervals (srvyr)</td>
+</tr><tr><td><code>survey_chisq</code></td>
+<td>Weighted chi-square tests over variable pairs (survey)</td>
+</tr><tr><td><code>survey_ttest</code></td>
+<td>Weighted t-tests across multiple outcomes (survey)</td>
+</tr><tr><td><code>survey_anova</code></td>
+<td>Weighted ANOVA via svyglm + optional emmeans pairwise</td>
+</tr><tr><td><code>run_survey_stats</code></td>
+<td>Bulk-run all four stat types from spec data frames; write CSVs</td>
 </tr></tbody></table></div>
+<div class="section level2">
+<h2 id="optional-dependencies">Optional Dependencies<a class="anchor" aria-label="anchor" href="#optional-dependencies"></a></h2>
+<p>The four <code>survey_*</code> functions and <code>run_survey_stats</code> depend on the <code>survey</code>, <code>srvyr</code>, and (optionally for pairwise contrasts) <code>emmeans</code> packages. These are listed in <code>Suggests</code> and loaded lazily via <code><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace()</a></code>; users get a clear install hint if a function is called without the relevant package present.</p>
+</div>
 <div class="section level2">
 <h2 id="key-conventions">Key Conventions<a class="anchor" aria-label="anchor" href="#key-conventions"></a></h2>
 <ul><li>

@@ -61,3 +61,18 @@ Weighted summary statistics over survey data.
   Run
   [`calc_summarize()`](https://urbaninstitute.github.io/ntistools/reference/calc_summarize.md)
   across many variables and bind the results
+
+## Survey statistics
+
+Weighted inference (CIs, chi-square, t-tests, ANOVA) and bulk runner.
+
+- [`survey_ci()`](https://urbaninstitute.github.io/ntistools/reference/survey_ci.md)
+  : Weighted confidence intervals for survey variables
+- [`survey_chisq()`](https://urbaninstitute.github.io/ntistools/reference/survey_chisq.md)
+  : Weighted chi-square tests for variable pairs
+- [`survey_ttest()`](https://urbaninstitute.github.io/ntistools/reference/survey_ttest.md)
+  : Weighted t-tests across multiple outcomes
+- [`survey_anova()`](https://urbaninstitute.github.io/ntistools/reference/survey_anova.md)
+  : Weighted ANOVA across multiple outcomes
+- [`run_survey_stats()`](https://urbaninstitute.github.io/ntistools/reference/run_survey_stats.md)
+  : Run a bulk batch of weighted survey statistics
