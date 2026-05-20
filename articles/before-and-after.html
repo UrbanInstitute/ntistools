@@ -1170,6 +1170,98 @@ explicit rather than buried in copy-pasted code.</p>
 <hr>
 </div>
 <div class="section level2">
+<h2 id="replace_over_one_with_na-clean-out-of-range-proportions">11. <code>replace_over_one_with_na()</code> — Clean out-of-range
+proportions<a class="anchor" aria-label="anchor" href="#replace_over_one_with_na-clean-out-of-range-proportions"></a>
+</h2>
+<p>Survey-derived proportion columns sometimes contain garbage values
+greater than 1. <code><a href="../reference/replace_over_one_with_na.html">replace_over_one_with_na()</a></code> replaces them
+with <code>NA</code> in one call.</p>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">prop_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  PercentGov <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.4</span>, <span class="fl">1.2</span>, <span class="fl">0.9</span>, <span class="fl">2.1</span><span class="op">)</span>,</span>
+<span>  PercentPriv <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.6</span>, <span class="fl">0.5</span>, <span class="fl">0.8</span>, <span class="fl">1.5</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/replace_over_one_with_na.html">replace_over_one_with_na</a></span><span class="op">(</span><span class="va">prop_data</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PercentGov"</span>, <span class="st">"PercentPriv"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   PercentGov PercentPriv</span></span>
+<span><span class="co">#&gt; 1        0.4         0.6</span></span>
+<span><span class="co">#&gt; 2         NA         0.5</span></span>
+<span><span class="co">#&gt; 3        0.9         0.8</span></span>
+<span><span class="co">#&gt; 4         NA          NA</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="calc_summarize-and-summarize_by_groups-weighted-summaries">12. <code>calc_summarize()</code> and
+<code>summarize_by_groups()</code> — Weighted summaries<a class="anchor" aria-label="anchor" href="#calc_summarize-and-summarize_by_groups-weighted-summaries"></a>
+</h2>
+<p>Analysis scripts often need weighted proportions, means, or medians
+of survey variables, optionally broken out by a grouping variable like
+size stratum or region. <code><a href="../reference/calc_summarize.html">calc_summarize()</a></code> handles one
+variable; <code><a href="../reference/summarize_by_groups.html">summarize_by_groups()</a></code> runs it over many
+<code>variable = metric</code> pairs and stacks the results — replacing
+the typical <code>purrr::map2() |&gt; list_rbind()</code> pattern.</p>
+<div class="section level3">
+<h3 id="before-10">Before<a class="anchor" aria-label="anchor" href="#before-10"></a>
+</h3>
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://purrr.tidyverse.org/" class="external-link">purrr</a></span><span class="op">)</span></span>
+<span><span class="va">vars</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>LLLost <span class="op">=</span> <span class="st">"proportion"</span>, LLDelay <span class="op">=</span> <span class="st">"proportion"</span>,</span>
+<span>             PercentGov <span class="op">=</span> <span class="st">"mean"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># Repeated for every grouping variable (SizeStrata, ntmaj12, CensusRegion4, ...)</span></span>
+<span><span class="va">SizeStrata</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/map2.html" class="external-link">map2</a></span><span class="op">(</span></span>
+<span>  .x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">vars</span><span class="op">)</span>,</span>
+<span>  .y <span class="op">=</span> <span class="va">vars</span>,</span>
+<span>  .f <span class="op">=</span> <span class="op">~</span> <span class="fu"><a href="../reference/calc_summarize.html">calc_summarize</a></span><span class="op">(</span></span>
+<span>    svy_df <span class="op">=</span> <span class="va">svy</span>,</span>
+<span>    var <span class="op">=</span> <span class="va">.x</span>,</span>
+<span>    wt_var <span class="op">=</span> <span class="st">"weight_year6plus"</span>,</span>
+<span>    grp_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"SizeStrata"</span>, <span class="va">.x</span><span class="op">)</span>,</span>
+<span>    metric <span class="op">=</span> <span class="va">.y</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html" class="external-link">%&gt;%</a></span> <span class="fu"><a href="https://purrr.tidyverse.org/reference/list_c.html" class="external-link">list_rbind</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="after-10">After<a class="anchor" aria-label="anchor" href="#after-10"></a>
+</h3>
+<div class="sourceCode" id="cb39"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">svy</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span></span>
+<span>  SizeStrata <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">2</span>, <span class="fl">3</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>  LLLost     <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>  LLDelay    <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>  PercentGov <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0.5</span>, <span class="fl">0.4</span>, <span class="fl">0.2</span>, <span class="fl">0.6</span>, <span class="fl">0.7</span><span class="op">)</span>,</span>
+<span>  weight_year6plus <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">100</span>, <span class="fl">150</span>, <span class="fl">200</span>, <span class="fl">100</span>, <span class="fl">50</span>, <span class="fl">150</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="fu"><a href="../reference/summarize_by_groups.html">summarize_by_groups</a></span><span class="op">(</span></span>
+<span>  <span class="va">svy</span>,</span>
+<span>  vars      <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>LLLost <span class="op">=</span> <span class="st">"proportion"</span>, LLDelay <span class="op">=</span> <span class="st">"proportion"</span>,</span>
+<span>                PercentGov <span class="op">=</span> <span class="st">"mean"</span><span class="op">)</span>,</span>
+<span>  wt_var    <span class="op">=</span> <span class="st">"weight_year6plus"</span>,</span>
+<span>  group_var <span class="op">=</span> <span class="st">"SizeStrata"</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 14 × 7</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># Groups:   group_level [3]</span></span></span>
+<span><span class="co">#&gt;    group_level variable_level count value variable   metric     group     </span></span>
+<span><span class="co">#&gt;    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>     </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 1</span> 1           0                150 0.6   LLLost     proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 2</span> 1           1                100 0.4   LLLost     proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 3</span> 2           0                100 0.333 LLLost     proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 4</span> 2           1                200 0.667 LLLost     proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 5</span> 3           1                200 1     LLLost     proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 6</span> 1           0                100 0.4   LLDelay    proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 7</span> 1           1                150 0.6   LLDelay    proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 8</span> 2           0                100 0.333 LLDelay    proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;"> 9</span> 2           1                200 0.667 LLDelay    proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">10</span> 3           0                150 0.75  LLDelay    proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">11</span> 3           1                 50 0.25  LLDelay    proportion SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">12</span> 1           <span style="color: #BB0000;">NA</span>               250 0.42  PercentGov mean       SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">13</span> 2           <span style="color: #BB0000;">NA</span>               300 0.333 PercentGov mean       SizeStrata</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">14</span> 3           <span style="color: #BB0000;">NA</span>               200 0.675 PercentGov mean       SizeStrata</span></span></code></pre></div>
+<p>Drop <code>group_var</code> for a national (ungrouped) summary — the
+<code>group</code> column will contain <code>"National"</code>.</p>
+<hr>
+</div>
+</div>
+<div class="section level2">
 <h2 id="quick-reference">Quick reference<a class="anchor" aria-label="anchor" href="#quick-reference"></a>
 </h2>
 <table class="table">
@@ -1260,6 +1352,24 @@ columns</td>
 <code>mapping</code>, <code>labels</code>, <code>na_values</code>,
 <code>na_label</code>
 </td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/replace_over_one_with_na.html">replace_over_one_with_na()</a></code></td>
+<td>Numeric columns</td>
+<td>Numeric with NAs for &gt; 1</td>
+<td><code>vars</code></td>
+</tr>
+<tr class="even">
+<td><code><a href="../reference/calc_summarize.html">calc_summarize()</a></code></td>
+<td>Survey df + var + weight</td>
+<td>Weighted summary tibble</td>
+<td><code>metric</code></td>
+</tr>
+<tr class="odd">
+<td><code><a href="../reference/summarize_by_groups.html">summarize_by_groups()</a></code></td>
+<td>Survey df + named <code>var = metric</code> list</td>
+<td>Stacked summaries</td>
+<td><code>group_var</code></td>
 </tr>
 </tbody>
 </table>

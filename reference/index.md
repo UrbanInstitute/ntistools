@@ -45,3 +45,19 @@ Conditionally set variables to NA for ineligible respondents.
 
 - [`apply_filter()`](https://urbaninstitute.github.io/ntistools/reference/apply_filter.md)
   : Conditionally set variables to NA when a condition is not met
+- [`replace_over_one_with_na()`](https://urbaninstitute.github.io/ntistools/reference/replace_over_one_with_na.md)
+  : Replace values greater than 1 with NA
+
+## Summarize
+
+Weighted summary statistics over survey data.
+
+- [`calc_summarize()`](https://urbaninstitute.github.io/ntistools/reference/calc_summarize.md)
+  : Calculate weighted summary statistics
+
+- [`summarize_by_groups()`](https://urbaninstitute.github.io/ntistools/reference/summarize_by_groups.md)
+  :
+
+  Run
+  [`calc_summarize()`](https://urbaninstitute.github.io/ntistools/reference/calc_summarize.md)
+  across many variables and bind the results

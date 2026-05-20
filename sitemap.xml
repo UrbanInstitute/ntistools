@@ -7,6 +7,7 @@
 <url><loc>https://urbaninstitute.github.io/ntistools/authors.html</loc></url>
 <url><loc>https://urbaninstitute.github.io/ntistools/index.html</loc></url>
 <url><loc>https://urbaninstitute.github.io/ntistools/reference/apply_filter.html</loc></url>
+<url><loc>https://urbaninstitute.github.io/ntistools/reference/calc_summarize.html</loc></url>
 <url><loc>https://urbaninstitute.github.io/ntistools/reference/collapse_likert.html</loc></url>
 <url><loc>https://urbaninstitute.github.io/ntistools/reference/combine_binary.html</loc></url>
 <url><loc>https://urbaninstitute.github.io/ntistools/reference/count_binary.html</loc></url>
@@ -18,5 +19,7 @@
 <url><loc>https://urbaninstitute.github.io/ntistools/reference/propagate_parent.html</loc></url>
 <url><loc>https://urbaninstitute.github.io/ntistools/reference/recode_binary.html</loc></url>
 <url><loc>https://urbaninstitute.github.io/ntistools/reference/recode_sentinel.html</loc></url>
+<url><loc>https://urbaninstitute.github.io/ntistools/reference/replace_over_one_with_na.html</loc></url>
+<url><loc>https://urbaninstitute.github.io/ntistools/reference/summarize_by_groups.html</loc></url>
 </urlset>
 

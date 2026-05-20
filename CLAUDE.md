@@ -53,7 +53,7 @@ Standard R package layout using `roxygen2` workflow:
   gh-pages on push to main.
 - **.github/workflows/**: GitHub Actions for pkgdown deployment.
 
-## Exported Functions (10)
+## Exported Functions (13)
 
 | Function | Purpose |
 |----|----|
@@ -67,6 +67,9 @@ Standard R package layout using `roxygen2` workflow:
 | `impute_from_flag` | Replace NA when flag column indicates valid skip |
 | `propagate_parent` | Push parent value to child columns |
 | `apply_filter` | Set vars to NA for ineligible respondents |
+| `replace_over_one_with_na` | Replace values \> 1 with NA (proportion cleanup) |
+| `calc_summarize` | Weighted proportion / mean / median per group |
+| `summarize_by_groups` | Run `calc_summarize` over many `var = metric` pairs |
 
 ## Key Conventions
 

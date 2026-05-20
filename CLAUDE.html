@@ -82,7 +82,7 @@
 <strong>.github/workflows/</strong>: GitHub Actions for pkgdown deployment.</li>
 </ul></div>
 <div class="section level2">
-<h2 id="exported-functions-10">Exported Functions (10)<a class="anchor" aria-label="anchor" href="#exported-functions-10"></a></h2>
+<h2 id="exported-functions-13">Exported Functions (13)<a class="anchor" aria-label="anchor" href="#exported-functions-13"></a></h2>
 <table class="table"><colgroup><col width="50%"><col width="50%"></colgroup><thead><tr><th>Function</th>
 <th>Purpose</th>
 </tr></thead><tbody><tr><td><code>recode_binary</code></td>
@@ -105,6 +105,12 @@
 <td>Push parent value to child columns</td>
 </tr><tr><td><code>apply_filter</code></td>
 <td>Set vars to NA for ineligible respondents</td>
+</tr><tr><td><code>replace_over_one_with_na</code></td>
+<td>Replace values &gt; 1 with NA (proportion cleanup)</td>
+</tr><tr><td><code>calc_summarize</code></td>
+<td>Weighted proportion / mean / median per group</td>
+</tr><tr><td><code>summarize_by_groups</code></td>
+<td>Run <code>calc_summarize</code> over many <code>var = metric</code> pairs</td>
 </tr></tbody></table></div>
 <div class="section level2">
 <h2 id="key-conventions">Key Conventions<a class="anchor" aria-label="anchor" href="#key-conventions"></a></h2>

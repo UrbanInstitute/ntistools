@@ -1124,6 +1124,104 @@ buried in copy-pasted code.
 
 ------------------------------------------------------------------------
 
+## 11. `replace_over_one_with_na()` — Clean out-of-range proportions
+
+Survey-derived proportion columns sometimes contain garbage values
+greater than 1.
+[`replace_over_one_with_na()`](https://urbaninstitute.github.io/ntistools/reference/replace_over_one_with_na.md)
+replaces them with `NA` in one call.
+
+``` r
+
+prop_data <- data.frame(
+  PercentGov = c(0.4, 1.2, 0.9, 2.1),
+  PercentPriv = c(0.6, 0.5, 0.8, 1.5)
+)
+replace_over_one_with_na(prop_data, c("PercentGov", "PercentPriv"))
+#>   PercentGov PercentPriv
+#> 1        0.4         0.6
+#> 2         NA         0.5
+#> 3        0.9         0.8
+#> 4         NA          NA
+```
+
+## 12. `calc_summarize()` and `summarize_by_groups()` — Weighted summaries
+
+Analysis scripts often need weighted proportions, means, or medians of
+survey variables, optionally broken out by a grouping variable like size
+stratum or region.
+[`calc_summarize()`](https://urbaninstitute.github.io/ntistools/reference/calc_summarize.md)
+handles one variable;
+[`summarize_by_groups()`](https://urbaninstitute.github.io/ntistools/reference/summarize_by_groups.md)
+runs it over many `variable = metric` pairs and stacks the results —
+replacing the typical `purrr::map2() |> list_rbind()` pattern.
+
+### Before
+
+``` r
+
+library(purrr)
+vars <- list(LLLost = "proportion", LLDelay = "proportion",
+             PercentGov = "mean")
+
+# Repeated for every grouping variable (SizeStrata, ntmaj12, CensusRegion4, ...)
+SizeStrata <- map2(
+  .x = names(vars),
+  .y = vars,
+  .f = ~ calc_summarize(
+    svy_df = svy,
+    var = .x,
+    wt_var = "weight_year6plus",
+    grp_cols = c("SizeStrata", .x),
+    metric = .y
+  )
+) %>% list_rbind()
+```
+
+### After
+
+``` r
+
+svy <- data.frame(
+  SizeStrata = c(1, 1, 2, 2, 3, 3),
+  LLLost     = c(1, 0, 1, 0, 1, 1),
+  LLDelay    = c(0, 1, 1, 0, 1, 0),
+  PercentGov = c(0.3, 0.5, 0.4, 0.2, 0.6, 0.7),
+  weight_year6plus = c(100, 150, 200, 100, 50, 150)
+)
+
+summarize_by_groups(
+  svy,
+  vars      = c(LLLost = "proportion", LLDelay = "proportion",
+                PercentGov = "mean"),
+  wt_var    = "weight_year6plus",
+  group_var = "SizeStrata"
+)
+#> # A tibble: 14 × 7
+#> # Groups:   group_level [3]
+#>    group_level variable_level count value variable   metric     group     
+#>    <chr>       <chr>          <dbl> <dbl> <chr>      <chr>      <chr>     
+#>  1 1           0                150 0.6   LLLost     proportion SizeStrata
+#>  2 1           1                100 0.4   LLLost     proportion SizeStrata
+#>  3 2           0                100 0.333 LLLost     proportion SizeStrata
+#>  4 2           1                200 0.667 LLLost     proportion SizeStrata
+#>  5 3           1                200 1     LLLost     proportion SizeStrata
+#>  6 1           0                100 0.4   LLDelay    proportion SizeStrata
+#>  7 1           1                150 0.6   LLDelay    proportion SizeStrata
+#>  8 2           0                100 0.333 LLDelay    proportion SizeStrata
+#>  9 2           1                200 0.667 LLDelay    proportion SizeStrata
+#> 10 3           0                150 0.75  LLDelay    proportion SizeStrata
+#> 11 3           1                 50 0.25  LLDelay    proportion SizeStrata
+#> 12 1           NA               250 0.42  PercentGov mean       SizeStrata
+#> 13 2           NA               300 0.333 PercentGov mean       SizeStrata
+#> 14 3           NA               200 0.675 PercentGov mean       SizeStrata
+```
+
+Drop `group_var` for a national (ungrouped) summary — the `group` column
+will contain `"National"`.
+
+------------------------------------------------------------------------
+
 ## Quick reference
 
 | Function | Input | Output | Key options |
@@ -1138,3 +1236,6 @@ buried in copy-pasted code.
 | [`apply_filter()`](https://urbaninstitute.github.io/ntistools/reference/apply_filter.md) | Any columns + condition | Columns with NAs added | `condition` |
 | [`label_binary()`](https://urbaninstitute.github.io/ntistools/reference/label_binary.md) | 0/1 columns | Character columns | `true_values`, `false_values`, `na_values` |
 | [`label_likert()`](https://urbaninstitute.github.io/ntistools/reference/label_likert.md) | Likert numeric | Character columns | `mapping`, `labels`, `na_values`, `na_label` |
+| [`replace_over_one_with_na()`](https://urbaninstitute.github.io/ntistools/reference/replace_over_one_with_na.md) | Numeric columns | Numeric with NAs for \> 1 | `vars` |
+| [`calc_summarize()`](https://urbaninstitute.github.io/ntistools/reference/calc_summarize.md) | Survey df + var + weight | Weighted summary tibble | `metric` |
+| [`summarize_by_groups()`](https://urbaninstitute.github.io/ntistools/reference/summarize_by_groups.md) | Survey df + named `var = metric` list | Stacked summaries | `group_var` |
