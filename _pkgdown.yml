@@ -36,3 +36,10 @@ reference:
     desc: "Conditionally set variables to NA for ineligible respondents."
     contents:
       - apply_filter
+      - replace_over_one_with_na
+
+  - title: "Summarize"
+    desc: "Weighted summary statistics over survey data."
+    contents:
+      - calc_summarize
+      - summarize_by_groups
