@@ -109,7 +109,7 @@ combined into `GeoAreas_ServedLocal`.
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(
     GeoAreas_Locally = case_when(
       GeoAreas_Local == 1 | GeoAreas_MultipleLocal == 1 |
@@ -120,19 +120,19 @@ before <- survey %>%
     )
   )
 
-before %>% select(starts_with("GeoAreas_L"), GeoAreas_MultipleLocal,
+before |> select(starts_with("GeoAreas_L"), GeoAreas_MultipleLocal,
                   GeoAreas_RegionalWithin)
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   combine_binary(GeoAreas_Locally,
                  GeoAreas_Local, GeoAreas_MultipleLocal,
                  GeoAreas_RegionalWithin)
 
-after %>% select(starts_with("GeoAreas_L"), GeoAreas_MultipleLocal,
+after |> select(starts_with("GeoAreas_L"), GeoAreas_MultipleLocal,
                  GeoAreas_RegionalWithin)
 ```
 
@@ -153,11 +153,11 @@ strict_example <- data.frame(
 )
 
 # Default: lenient (0 + NA = 0)
-combine_binary(strict_example, result_lenient, a, b) %>%
+combine_binary(strict_example, result_lenient, a, b) |>
   select(a, b, result_lenient)
 
 # Strict: any NA poisons the result (0 + NA = NA), unless a 1 is present
-combine_binary(strict_example, result_strict, a, b, strict_na = TRUE) %>%
+combine_binary(strict_example, result_strict, a, b, strict_na = TRUE) |>
   select(a, b, result_strict)
 ```
 
@@ -181,7 +181,7 @@ All three are NA when every source column is NA.
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(
     LLDisruption_any = case_when(
       LLLost == 1 | LLDelay == 1 | LLStop == 1 ~ 1,
@@ -200,16 +200,16 @@ before <- survey %>%
     )
   )
 
-before %>% select(starts_with("LL"))
+before |> select(starts_with("LL"))
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   count_binary("LLDisruption", LLLost, LLDelay, LLStop)
 
-after %>% select(starts_with("LL"))
+after |> select(starts_with("LL"))
 ```
 
 **Tip:** If you only need the `_any` column (not `_count` or `_all`), use
@@ -235,20 +235,20 @@ recode_progdem <- function(x) {
   )
 }
 
-before <- survey %>%
+before <- survey |>
   mutate(across(c(ProgDem_Children, ProgDem_Elders),
                 recode_progdem))
 
-before %>% select(starts_with("ProgDem"))
+before |> select(starts_with("ProgDem"))
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   recode_binary(c("ProgDem_Children", "ProgDem_Elders"))
 
-after %>% select(starts_with("ProgDem"))
+after |> select(starts_with("ProgDem"))
 ```
 
 ### Customizing value mappings
@@ -263,7 +263,7 @@ custom_example <- data.frame(rating = c(1, 2, 3, 4, 5, 98))
 recode_binary(custom_example, "rating",
               ones = c(1, 2, 3),
               zeros = c(4, 5),
-              na_values = 98) %>%
+              na_values = 98) |>
   pull(rating)
 ```
 
@@ -277,22 +277,22 @@ extraction script removes 98s from dozens of columns before analysis.
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(across(
     all_of("DonImportance"),
     ~ case_when(. == 98 ~ NA, TRUE ~ .)
   ))
 
-before %>% select(DonImportance)
+before |> select(DonImportance)
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   recode_sentinel("DonImportance")
 
-after %>% select(DonImportance)
+after |> select(DonImportance)
 ```
 
 ### Removing different sentinel values
@@ -302,8 +302,8 @@ remove:
 
 ```{r}
 # Remove both 97 and 98
-survey %>%
-  recode_sentinel("DonImportance", values = c(97, 98)) %>%
+survey |>
+  recode_sentinel("DonImportance", values = c(97, 98)) |>
   select(DonImportance)
 ```
 
@@ -319,7 +319,7 @@ These NAs should be replaced with 0 (not left as missing data).
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(
     PplSrv_NumWait = case_when(
       PplSrv_NumWait_NA_X == 1 & is.na(PplSrv_NumWait) ~ 0,
@@ -327,16 +327,16 @@ before <- survey %>%
     )
   )
 
-before %>% select(starts_with("PplSrv"))
+before |> select(starts_with("PplSrv"))
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   impute_from_flag("PplSrv_NumWait")
 
-after %>% select(starts_with("PplSrv"))
+after |> select(starts_with("PplSrv"))
 ```
 
 ### Option: `flag_map` for non-standard flag column names
@@ -351,7 +351,7 @@ variable:
 
 ```{r}
 # Before: six separate case_when blocks in the extraction script
-before <- survey %>%
+before <- survey |>
   mutate(
     Staff_RegVlntr_2023 = case_when(
       is.na(Staff_RegVlntr_2023) & Staff_RegVlntr_NA == 1 ~ 0,
@@ -363,19 +363,19 @@ before <- survey %>%
     )
   )
 
-before %>% select(starts_with("Staff_RegVlntr"))
+before |> select(starts_with("Staff_RegVlntr"))
 ```
 
 ```{r}
 # After: one call handles both year columns
-after <- survey %>%
+after <- survey |>
   impute_from_flag(
     vars = c("Staff_RegVlntr_2023", "Staff_RegVlntr_2024"),
     flag_map = c(Staff_RegVlntr_2023 = "Staff_RegVlntr_NA",
                  Staff_RegVlntr_2024 = "Staff_RegVlntr_NA")
   )
 
-after %>% select(starts_with("Staff_RegVlntr"))
+after |> select(starts_with("Staff_RegVlntr"))
 ```
 
 **Tip:** You can mix `flag_map` and the default suffix in the same call.
@@ -401,7 +401,7 @@ Collapse a 5-point Likert scale (1--5) into 3 categories (1 = low, 2 = mid,
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(
     FinanceChng_Benefits = case_match(
       FinanceChng_Benefits,
@@ -409,16 +409,16 @@ before <- survey %>%
     )
   )
 
-before %>% select(FinanceChng_Benefits)
+before |> select(FinanceChng_Benefits)
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   collapse_likert("FinanceChng_Benefits")
 
-after %>% select(FinanceChng_Benefits)
+after |> select(FinanceChng_Benefits)
 ```
 
 ### Applying to multiple columns at once
@@ -430,10 +430,10 @@ mapping. Pass a character vector of column names:
 likert_cols <- c("FinanceChng_Benefits", "FinanceChng_Salaries",
                  "FinanceChng_TotExp")
 
-after <- survey %>%
+after <- survey |>
   collapse_likert(likert_cols)
 
-after %>% select(all_of(likert_cols))
+after |> select(all_of(likert_cols))
 ```
 
 ---
@@ -447,7 +447,7 @@ that value instead of being left as NA.
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(across(
     c(Regulations_Federal, Regulations_State),
     ~ case_when(
@@ -457,17 +457,17 @@ before <- survey %>%
     )
   ))
 
-before %>% select(starts_with("Regulations"))
+before |> select(starts_with("Regulations"))
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   propagate_parent(c("Regulations_Federal", "Regulations_State"),
                    parent_var = "Regulations")
 
-after %>% select(starts_with("Regulations"))
+after |> select(starts_with("Regulations"))
 ```
 
 ### Customizing which parent values propagate
@@ -477,10 +477,10 @@ can change this:
 
 ```{r}
 # Only propagate 0 (not 97)
-survey %>%
+survey |>
   propagate_parent(c("Regulations_Federal", "Regulations_State"),
                    parent_var = "Regulations",
-                   values = 0) %>%
+                   values = 0) |>
   select(starts_with("Regulations"))
 ```
 
@@ -496,23 +496,23 @@ be set to NA so they don't affect analysis.
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(across(
     c(StaffVacancies, BenefitsImpact),
     ~ case_when(HaveStaff == 1 ~ ., .default = NA)
   ))
 
-before %>% select(HaveStaff, StaffVacancies, BenefitsImpact)
+before |> select(HaveStaff, StaffVacancies, BenefitsImpact)
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   apply_filter(c("StaffVacancies", "BenefitsImpact"),
                condition = HaveStaff == 1)
 
-after %>% select(HaveStaff, StaffVacancies, BenefitsImpact)
+after |> select(HaveStaff, StaffVacancies, BenefitsImpact)
 ```
 
 **Tip:** The `condition` argument accepts any expression you could use in
@@ -531,7 +531,7 @@ replaces all of them in a single call.
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(
     FinanceChng_Reserves = case_when(
       FinanceChng_Reserves == 1 ~ "Drew on cash reserves",
@@ -545,13 +545,13 @@ before <- survey %>%
     )
   )
 
-before %>% select(FinanceChng_Reserves, PrgSrvc_Suspend)
+before |> select(FinanceChng_Reserves, PrgSrvc_Suspend)
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   label_binary(
     labels = list(
       FinanceChng_Reserves = c("Drew on cash reserves",
@@ -562,7 +562,7 @@ after <- survey %>%
     na_values = 97
   )
 
-after %>% select(FinanceChng_Reserves, PrgSrvc_Suspend)
+after |> select(FinanceChng_Reserves, PrgSrvc_Suspend)
 ```
 
 ### How `labels` works
@@ -579,18 +579,18 @@ cash reserves, that effectively means they did not. Set `na_values = 97` to map
 
 ```{r}
 # Without na_values: 97 becomes NA
-survey %>%
+survey |>
   label_binary(
     labels = list(FinanceChng_Reserves = c("Drew", "Did not draw"))
-  ) %>%
+  ) |>
   select(FinanceChng_Reserves)
 
 # With na_values = 97: 97 maps to the false label
-survey %>%
+survey |>
   label_binary(
     labels = list(FinanceChng_Reserves = c("Drew", "Did not draw")),
     na_values = 97
-  ) %>%
+  ) |>
   select(FinanceChng_Reserves)
 ```
 
@@ -601,8 +601,8 @@ In the extraction script, 16 `ProgDem_` columns are each labeled with a
 
 ```{r}
 # First recode to 0/1 (2 = secondary yes), then label
-after <- survey %>%
-  recode_binary(c("ProgDem_Children", "ProgDem_Elders")) %>%
+after <- survey |>
+  recode_binary(c("ProgDem_Children", "ProgDem_Elders")) |>
   label_binary(labels = list(
     ProgDem_Children = c("Serving children and youth",
                          "Not serving children and youth"),
@@ -610,7 +610,7 @@ after <- survey %>%
                          "Not serving seniors")
   ))
 
-after %>% select(starts_with("ProgDem"))
+after |> select(starts_with("ProgDem"))
 ```
 
 ### Option: custom `true_values` and `false_values`
@@ -626,7 +626,7 @@ label_binary(age_example,
   true_values = c(1, 2),
   false_values = c(3, 4, 5, 6, 7, 8, 9),
   na_values = 97
-) %>%
+) |>
   pull(Dem_BChair_Age)
 ```
 
@@ -646,7 +646,7 @@ then looks up the corresponding label. Values in `na_values` get `na_label`
 ### Before
 
 ```{r}
-before <- survey %>%
+before <- survey |>
   mutate(
     FinanceChng_Benefits = case_when(
       FinanceChng_Benefits %in% c(1, 2) ~ "Decrease",
@@ -657,17 +657,17 @@ before <- survey %>%
     )
   )
 
-before %>% select(FinanceChng_Benefits)
+before |> select(FinanceChng_Benefits)
 ```
 
 ### After
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   label_likert("FinanceChng_Benefits",
                labels = c("Decrease", "No change", "Increase"))
 
-after %>% select(FinanceChng_Benefits)
+after |> select(FinanceChng_Benefits)
 ```
 
 ### Applying different labels to different column groups
@@ -676,17 +676,17 @@ The extraction script uses `label_likert()` for several groups of columns, each
 with different label text. You can chain multiple calls:
 
 ```{r}
-after <- survey %>%
+after <- survey |>
   label_likert("FinanceChng_Benefits",
-               labels = c("Decrease", "No change", "Increase")) %>%
+               labels = c("Decrease", "No change", "Increase")) |>
   label_likert("FinanceChng_Salaries",
                labels = c("Decrease in salaries", "No change",
-                          "Increase in salaries")) %>%
+                          "Increase in salaries")) |>
   label_likert("FinanceChng_TotExp",
                labels = c("Decrease in expenses", "No change",
                           "Increase in expenses"))
 
-after %>% select(starts_with("FinanceChng"))
+after |> select(starts_with("FinanceChng"))
 ```
 
 ### Option: custom `na_label`
@@ -694,10 +694,10 @@ after %>% select(starts_with("FinanceChng"))
 The default `na_label` is `"Unsure"`, but you can change it:
 
 ```{r}
-survey %>%
+survey |>
   label_likert("FinanceChng_Benefits",
                labels = c("Decrease", "No change", "Increase"),
-               na_label = "Not applicable") %>%
+               na_label = "Not applicable") |>
   select(FinanceChng_Benefits)
 ```
 
@@ -712,7 +712,7 @@ three_point <- data.frame(satisfaction = c(1, 2, 3, 97))
 
 label_likert(three_point, "satisfaction",
              labels = c("Dissatisfied", "Neutral", "Satisfied"),
-             mapping = c(1L, 2L, 3L)) %>%
+             mapping = c(1L, 2L, 3L)) |>
   pull(satisfaction)
 ```
 
@@ -724,39 +724,39 @@ In a real NTIS cleaning script, you chain multiple ntistools calls into a single
 pipeline. Here's a condensed example showing how the functions work together:
 
 ```{r}
-cleaned <- survey %>%
+cleaned <- survey |>
   # Step 1: Combine related binary indicators into summary columns
   combine_binary(GeoAreas_Locally,
                  GeoAreas_Local, GeoAreas_MultipleLocal,
-                 GeoAreas_RegionalWithin) %>%
+                 GeoAreas_RegionalWithin) |>
   combine_binary(GeoAreas_Multistate,
                  GeoAreas_MultipleState, GeoAreas_RegionalAcross,
-                 strict_na = TRUE) %>%
+                 strict_na = TRUE) |>
 
   # Step 2: Create any/count/all summaries for disruption indicators
-  count_binary("LLDisruption", LLLost, LLDelay, LLStop) %>%
+  count_binary("LLDisruption", LLLost, LLDelay, LLStop) |>
 
   # Step 3: Recode multi-level demographics to simple 0/1
-  recode_binary(c("ProgDem_Children", "ProgDem_Elders")) %>%
+  recode_binary(c("ProgDem_Children", "ProgDem_Elders")) |>
 
   # Step 4: Remove sentinel values
-  recode_sentinel("DonImportance") %>%
+  recode_sentinel("DonImportance") |>
 
   # Step 5: Fill in valid-skip NAs using flag columns
-  impute_from_flag("PplSrv_NumWait") %>%
+  impute_from_flag("PplSrv_NumWait") |>
   impute_from_flag(
     vars = c("Staff_RegVlntr_2023", "Staff_RegVlntr_2024"),
     flag_map = c(Staff_RegVlntr_2023 = "Staff_RegVlntr_NA",
                  Staff_RegVlntr_2024 = "Staff_RegVlntr_NA")
-  ) %>%
+  ) |>
 
   # Step 6: Propagate parent answers to children
   propagate_parent(c("Regulations_Federal", "Regulations_State"),
-                   parent_var = "Regulations") %>%
+                   parent_var = "Regulations") |>
 
   # Step 7: Zero out variables for ineligible respondents
   apply_filter(c("StaffVacancies", "BenefitsImpact"),
-               condition = HaveStaff == 1) %>%
+               condition = HaveStaff == 1) |>
 
   # Step 8: Label binary columns for reporting
   label_binary(
@@ -766,17 +766,17 @@ cleaned <- survey %>%
       PrgSrvc_Suspend = c("Paused services", "Did not pause")
     ),
     na_values = 97
-  ) %>%
+  ) |>
   label_binary(
     labels = list(
       ProgDem_Children = c("Serving children", "Not serving children"),
       ProgDem_Elders = c("Serving seniors", "Not serving seniors")
     )
-  ) %>%
+  ) |>
 
   # Step 9: Label Likert scales for reporting
   label_likert(c("FinanceChng_Benefits", "FinanceChng_TotExp"),
-               labels = c("Decrease", "No change", "Increase")) %>%
+               labels = c("Decrease", "No change", "Increase")) |>
   label_likert("FinanceChng_Salaries",
                labels = c("Decrease in wages", "No change",
                           "Increase in wages"))
@@ -829,7 +829,7 @@ SizeStrata <- map2(
     grp_cols = c("SizeStrata", .x),
     metric = .y
   )
-) %>% list_rbind()
+) |> list_rbind()
 ```
 
 ### After

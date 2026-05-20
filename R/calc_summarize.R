@@ -34,53 +34,53 @@ calc_summarize <- function(svy_df, var, wt_var, grp_cols, metric) {
   group <- utils::head(grp_cols, -1)
   group_level <- grp_cols[1]
 
-  svy_grouped_df <- svy_df %>%
+  svy_grouped_df <- svy_df |>
     dplyr::filter(dplyr::if_all(dplyr::all_of(grp_cols), ~ !is.na(.)))
 
   if (metric == "proportion") {
-    svy_summarized_df <- svy_grouped_df %>%
-      dplyr::group_by(dplyr::across(dplyr::all_of(grp_cols))) %>%
+    svy_summarized_df <- svy_grouped_df |>
+      dplyr::group_by(dplyr::across(dplyr::all_of(grp_cols))) |>
       dplyr::summarise(
         count = sum(.data[[wt_var]], na.rm = TRUE),
         .groups = "drop"
-      ) %>%
-      dplyr::group_by(!!!rlang::syms(group)) %>%
+      ) |>
+      dplyr::group_by(!!!rlang::syms(group)) |>
       dplyr::mutate(
         value = .data$count / sum(.data$count),
         variable = var,
         metric = metric
-      ) %>%
-      dplyr::rename(variable_level = !!rlang::sym(var)) %>%
+      ) |>
+      dplyr::rename(variable_level = !!rlang::sym(var)) |>
       dplyr::mutate(variable_level = as.character(.data$variable_level))
   } else if (metric == "mean") {
-    svy_summarized_df <- svy_grouped_df %>%
-      dplyr::group_by(!!!rlang::syms(group)) %>%
+    svy_summarized_df <- svy_grouped_df |>
+      dplyr::group_by(!!!rlang::syms(group)) |>
       dplyr::summarise(
         count = sum(.data[[wt_var]], na.rm = TRUE),
         value = stats::weighted.mean(.data[[var]], .data[[wt_var]], na.rm = TRUE),
         .groups = "drop"
-      ) %>%
+      ) |>
       dplyr::mutate(variable = var, metric = metric)
   } else if (metric == "median") {
-    svy_summarized_df <- svy_grouped_df %>%
-      dplyr::group_by(!!!rlang::syms(group)) %>%
+    svy_summarized_df <- svy_grouped_df |>
+      dplyr::group_by(!!!rlang::syms(group)) |>
       dplyr::summarise(
         count = sum(.data[[wt_var]], na.rm = TRUE),
         value = weighted_median(.data[[var]], .data[[wt_var]], na.rm = TRUE),
         .groups = "drop"
-      ) %>%
+      ) |>
       dplyr::mutate(variable = var, metric = metric)
   } else {
     stop("`metric` must be one of 'proportion', 'mean', or 'median'.",
          call. = FALSE)
   }
 
-  svy_summarized_df <- svy_summarized_df %>%
+  svy_summarized_df <- svy_summarized_df |>
     dplyr::mutate(group = ifelse(length(group) == 0, "National", group))
 
   if (length(grp_cols) > 1) {
-    svy_summarized_df <- svy_summarized_df %>%
-      dplyr::rename(group_level = !!rlang::sym(group_level)) %>%
+    svy_summarized_df <- svy_summarized_df |>
+      dplyr::rename(group_level = !!rlang::sym(group_level)) |>
       dplyr::mutate(group_level = as.character(.data$group_level))
   }
 

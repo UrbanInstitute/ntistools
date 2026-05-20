@@ -1,0 +1,237 @@
+---
+title: "Weighted Survey Statistics with ntistools"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Weighted Survey Statistics with ntistools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+has_survey <- requireNamespace("survey", quietly = TRUE)
+has_srvyr  <- requireNamespace("srvyr",  quietly = TRUE)
+has_emmeans <- requireNamespace("emmeans", quietly = TRUE)
+
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment  = "#>",
+  eval     = has_survey && has_srvyr
+)
+```
+
+## Overview
+
+After cleaning NTIS data with the recode / label / combine functions, the next
+step in most analyses is *weighted inference*: confidence intervals, chi-square
+tests of association, t-tests across two groups, and ANOVA across many groups.
+The `survey` and `srvyr` packages provide the underlying machinery, but the
+calls are verbose and the outputs are not tidy — making it tedious to run the
+same test over many variables and stack the results into a single CSV.
+
+ntistools provides five functions that wrap these patterns:
+
+| Function | Wraps | Use when |
+|---|---|---|
+| `survey_ci()` | `srvyr::survey_mean(vartype = "ci")` | You want weighted means + CIs for many variables, optionally by a group. |
+| `survey_chisq()` | `survey::svychisq()` | You want pairwise tests of association across many variable pairs. |
+| `survey_ttest()` | `survey::svyttest()` | You want a t-test of each of several outcomes against a binary group. |
+| `survey_anova()` | `survey::svyglm()` + `survey::regTermTest()`, optionally `emmeans` | You want a global F-test (and optional pairwise contrasts) for each outcome against a multi-level group. |
+| `run_survey_stats()` | All of the above | You want to drive all four from spec data frames and write CSVs. |
+
+All five return tidy data frames with one row per result, so they stack
+cleanly with `dplyr::bind_rows()` or write straight to CSV.
+
+> **Optional dependencies.** `survey`, `srvyr`, and `emmeans` are listed in
+> `Suggests`. The functions load them lazily and emit a clear install hint if
+> a package is missing — you only need to install what you use.
+
+## Setup
+
+```{r setup, message = FALSE}
+library(ntistools)
+library(dplyr)
+
+set.seed(1)
+n <- 200
+svy <- data.frame(
+  SizeStrata        = sample(c("Small", "Medium", "Large"), n, replace = TRUE),
+  census_urban_area = sample(c("Urban", "Rural"), n, replace = TRUE),
+  LLAnyDisruption   = rbinom(n, 1, 0.45),
+  LLLost            = rbinom(n, 1, 0.30),
+  LLLostAmt         = round(rlnorm(n, log(20000), 0.6)),
+  weight_year6plus  = runif(n, 0.5, 3)
+)
+head(svy)
+```
+
+## `survey_ci()` --- weighted means with confidence intervals
+
+Pass a character vector of variables and a weight column. Optionally pass a
+`group_var` to break the estimates out by a categorical column.
+
+```{r ci-national}
+survey_ci(
+  svy,
+  vars   = c("LLAnyDisruption", "LLLost"),
+  wt_var = "weight_year6plus"
+)
+```
+
+Group by `SizeStrata` to get one row per (variable, group level):
+
+```{r ci-grouped}
+survey_ci(
+  svy,
+  vars      = c("LLAnyDisruption", "LLLost"),
+  wt_var    = "weight_year6plus",
+  group_var = "SizeStrata"
+)
+```
+
+Use `level` to change the CI width (default `0.95`).
+
+## `survey_chisq()` --- chi-square over variable pairs
+
+Pass a two-column data frame describing the pairs to test. One row of output
+per pair.
+
+```{r chisq}
+pairs <- data.frame(
+  var1 = c("SizeStrata",        "census_urban_area"),
+  var2 = c("LLAnyDisruption",   "LLAnyDisruption")
+)
+survey_chisq(svy, pairs, wt_var = "weight_year6plus")
+```
+
+The output columns are `var1`, `var2`, `statistic`, `df`, `p_value` — no
+extra unnesting required.
+
+## `survey_ttest()` --- t-tests across many outcomes
+
+Pass a character vector of outcomes and a single binary grouping variable.
+One row of output per outcome.
+
+```{r ttest}
+survey_ttest(
+  svy,
+  outcomes  = c("LLLostAmt", "LLAnyDisruption"),
+  group_var = "census_urban_area",
+  wt_var    = "weight_year6plus"
+)
+```
+
+## `survey_anova()` --- ANOVA across many outcomes, optional pairwise
+
+For categorical groups with more than two levels. The grouping variable is
+coerced to a factor automatically.
+
+```{r anova-overall}
+survey_anova(
+  svy,
+  outcomes  = "LLLostAmt",
+  group_var = "SizeStrata",
+  wt_var    = "weight_year6plus"
+)
+```
+
+The return value is a list. With `pairwise = TRUE`, it gains a `$pairwise`
+element with `emmeans`-style contrasts (requires the `emmeans` package):
+
+```{r anova-pairwise, eval = has_survey && has_srvyr && has_emmeans}
+res <- survey_anova(
+  svy,
+  outcomes  = "LLLostAmt",
+  group_var = "SizeStrata",
+  wt_var    = "weight_year6plus",
+  pairwise  = TRUE,
+  adjust    = "bonferroni"
+)
+res$pairwise
+```
+
+## `run_survey_stats()` --- bulk-run everything and write CSVs
+
+When you want to run dozens of these tests across one or more datasets,
+describe the jobs as spec data frames and let `run_survey_stats()` drive them.
+Each spec references a dataset by name from the `datasets` list.
+
+```{r run-stats}
+out <- run_survey_stats(
+  datasets   = list(y6 = svy),
+
+  ci_spec    = data.frame(
+    dataset   = "y6",
+    variable  = c("LLAnyDisruption", "LLLost"),
+    wt_var    = "weight_year6plus",
+    group_var = "SizeStrata"
+  ),
+
+  chisq_spec = data.frame(
+    dataset = "y6",
+    var1    = c("SizeStrata", "census_urban_area"),
+    var2    = c("LLAnyDisruption", "LLLost"),
+    wt_var  = "weight_year6plus"
+  ),
+
+  ttest_spec = data.frame(
+    dataset   = "y6",
+    outcome   = c("LLLostAmt"),
+    group_var = "census_urban_area",
+    wt_var    = "weight_year6plus"
+  ),
+
+  anova_spec = data.frame(
+    dataset   = "y6",
+    outcome   = "LLLostAmt",
+    group_var = "SizeStrata",
+    wt_var    = "weight_year6plus"
+  )
+)
+
+names(out)
+out$ci
+```
+
+Pass `output_dir = "stats_out"` to write one CSV per analysis type
+(`ci.csv`, `chisq.csv`, `ttest.csv`, `anova_overall.csv`, and
+`anova_pairwise.csv` when applicable). Pass `combined = TRUE` to write a
+single `survey_stats.csv` with an `analysis` column tagging each row.
+
+### Running across multiple datasets
+
+The `datasets` argument is a *named list*, and each spec row picks the
+dataset by name via the `dataset` column. To mix year-6 and year-5 jobs,
+hand both data frames to `run_survey_stats()` and reference them in the
+spec:
+
+```r
+run_survey_stats(
+  datasets = list(
+    y6 = nptrends_y6_clean,
+    y5 = nptrends_y5_clean
+  ),
+  ci_spec = data.frame(
+    dataset   = c("y6", "y6", "y5"),
+    variable  = c("LLAnyDisruption", "LLLost", "LLAnyDisruption"),
+    wt_var    = c("weight_year6plus", "weight_year6plus", "year5wt"),
+    group_var = c("SizeStrata", "SizeStrata", NA)
+  ),
+  output_dir = "stats_out",
+  combined   = TRUE
+)
+```
+
+`group_var` is optional in `ci_spec`; leave it as `NA` for a national
+(ungrouped) estimate.
+
+## When to use which
+
+- **Descriptive summaries** (proportions, means, medians per group, no CIs):
+  use `calc_summarize()` / `summarize_by_groups()`. See
+  `vignette("before-and-after")`.
+- **Descriptive summaries with confidence intervals**: use `survey_ci()`.
+- **Test of association between two categorical variables**: `survey_chisq()`.
+- **Compare a continuous (or 0/1) outcome across two groups**: `survey_ttest()`.
+- **Compare a continuous outcome across 3+ groups**: `survey_anova()`,
+  with `pairwise = TRUE` if you want post-hoc contrasts.
+- **A whole battery of the above at once**: `run_survey_stats()`.

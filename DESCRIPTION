@@ -14,6 +14,8 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 URL: https://urbaninstitute.github.io/ntistools/, https://github.com/UrbanInstitute/ntistools
 BugReports: https://github.com/UrbanInstitute/ntistools/issues
+Depends:
+    R (>= 4.1.0)
 Imports:
     dplyr,
     rlang
