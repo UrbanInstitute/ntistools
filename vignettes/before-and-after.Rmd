@@ -790,6 +790,73 @@ does, and the options are explicit rather than buried in copy-pasted code.
 
 ---
 
+## 11. `replace_over_one_with_na()` --- Clean out-of-range proportions
+
+Survey-derived proportion columns sometimes contain garbage values greater than
+1. `replace_over_one_with_na()` replaces them with `NA` in one call.
+
+```{r}
+prop_data <- data.frame(
+  PercentGov = c(0.4, 1.2, 0.9, 2.1),
+  PercentPriv = c(0.6, 0.5, 0.8, 1.5)
+)
+replace_over_one_with_na(prop_data, c("PercentGov", "PercentPriv"))
+```
+
+## 12. `calc_summarize()` and `summarize_by_groups()` --- Weighted summaries
+
+Analysis scripts often need weighted proportions, means, or medians of survey
+variables, optionally broken out by a grouping variable like size stratum or
+region. `calc_summarize()` handles one variable; `summarize_by_groups()` runs it
+over many `variable = metric` pairs and stacks the results --- replacing the
+typical `purrr::map2() |> list_rbind()` pattern.
+
+### Before
+
+```r
+library(purrr)
+vars <- list(LLLost = "proportion", LLDelay = "proportion",
+             PercentGov = "mean")
+
+# Repeated for every grouping variable (SizeStrata, ntmaj12, CensusRegion4, ...)
+SizeStrata <- map2(
+  .x = names(vars),
+  .y = vars,
+  .f = ~ calc_summarize(
+    svy_df = svy,
+    var = .x,
+    wt_var = "weight_year6plus",
+    grp_cols = c("SizeStrata", .x),
+    metric = .y
+  )
+) %>% list_rbind()
+```
+
+### After
+
+```{r}
+svy <- data.frame(
+  SizeStrata = c(1, 1, 2, 2, 3, 3),
+  LLLost     = c(1, 0, 1, 0, 1, 1),
+  LLDelay    = c(0, 1, 1, 0, 1, 0),
+  PercentGov = c(0.3, 0.5, 0.4, 0.2, 0.6, 0.7),
+  weight_year6plus = c(100, 150, 200, 100, 50, 150)
+)
+
+summarize_by_groups(
+  svy,
+  vars      = c(LLLost = "proportion", LLDelay = "proportion",
+                PercentGov = "mean"),
+  wt_var    = "weight_year6plus",
+  group_var = "SizeStrata"
+)
+```
+
+Drop `group_var` for a national (ungrouped) summary --- the `group` column will
+contain `"National"`.
+
+---
+
 ## Quick reference
 
 | Function | Input | Output | Key options |
@@ -804,3 +871,6 @@ does, and the options are explicit rather than buried in copy-pasted code.
 | `apply_filter()` | Any columns + condition | Columns with NAs added | `condition` |
 | `label_binary()` | 0/1 columns | Character columns | `true_values`, `false_values`, `na_values` |
 | `label_likert()` | Likert numeric | Character columns | `mapping`, `labels`, `na_values`, `na_label` |
+| `replace_over_one_with_na()` | Numeric columns | Numeric with NAs for > 1 | `vars` |
+| `calc_summarize()` | Survey df + var + weight | Weighted summary tibble | `metric` |
+| `summarize_by_groups()` | Survey df + named `var = metric` list | Stacked summaries | `group_var` |
