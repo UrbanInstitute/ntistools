@@ -53,5 +53,19 @@ summarize_by_groups(
   wt_var = "weight",
   group_var = "SizeStrata"
 )
-#> Error in svy_df %>% dplyr::filter(dplyr::if_all(dplyr::all_of(grp_cols),     ~!is.na(.))): could not find function "%>%"
+#> # A tibble: 11 × 7
+#> # Groups:   group_level [3]
+#>    group_level variable_level count value variable metric     group     
+#>    <chr>       <chr>          <dbl> <dbl> <chr>    <chr>      <chr>     
+#>  1 1           0                150 0.6   LLLost   proportion SizeStrata
+#>  2 1           1                100 0.4   LLLost   proportion SizeStrata
+#>  3 2           0                100 0.333 LLLost   proportion SizeStrata
+#>  4 2           1                200 0.667 LLLost   proportion SizeStrata
+#>  5 3           1                200 1     LLLost   proportion SizeStrata
+#>  6 1           0                100 0.4   LLDelay  proportion SizeStrata
+#>  7 1           1                150 0.6   LLDelay  proportion SizeStrata
+#>  8 2           0                100 0.333 LLDelay  proportion SizeStrata
+#>  9 2           1                200 0.667 LLDelay  proportion SizeStrata
+#> 10 3           0                150 0.75  LLDelay  proportion SizeStrata
+#> 11 3           1                 50 0.25  LLDelay  proportion SizeStrata
 ```

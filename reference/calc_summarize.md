@@ -58,8 +58,18 @@ d <- data.frame(
 calc_summarize(d, var = "Q_A", wt_var = "year5wt",
                grp_cols = c("LLTwoDisruption", "Q_A"),
                metric = "proportion")
-#> Error in svy_df %>% dplyr::filter(dplyr::if_all(dplyr::all_of(grp_cols),     ~!is.na(.))): could not find function "%>%"
+#> # A tibble: 4 × 7
+#> # Groups:   group_level [2]
+#>   group_level variable_level count value variable metric     group          
+#>   <chr>       <chr>          <dbl> <dbl> <chr>    <chr>      <chr>          
+#> 1 0           1                100 0.286 Q_A      proportion LLTwoDisruption
+#> 2 0           2                250 0.714 Q_A      proportion LLTwoDisruption
+#> 3 1           1                250 0.625 Q_A      proportion LLTwoDisruption
+#> 4 1           2                150 0.375 Q_A      proportion LLTwoDisruption
 calc_summarize(d, var = "LLLost", wt_var = "year5wt",
                grp_cols = "LLTwoDisruption", metric = "mean")
-#> Error in svy_df %>% dplyr::filter(dplyr::if_all(dplyr::all_of(grp_cols),     ~!is.na(.))): could not find function "%>%"
+#> # A tibble: 1 × 5
+#>   count value variable metric group   
+#>   <dbl> <dbl> <chr>    <chr>  <chr>   
+#> 1   750   0.6 LLLost   mean   National
 ```

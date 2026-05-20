@@ -21,6 +21,7 @@ within levels of a grouping variable."></head><body>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/before-and-after.html">Cleaning NTIS Data: Before and After ntistools</a></li>
+    <li><a class="dropdown-item" href="../articles/survey-statistics.html">Weighted Survey Statistics with ntistools</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -99,10 +100,20 @@ avoid taking on a <code>matrixStats</code> dependency.</p>
 <span class="r-in"><span><span class="fu">calc_summarize</span><span class="op">(</span><span class="va">d</span>, var <span class="op">=</span> <span class="st">"Q_A"</span>, wt_var <span class="op">=</span> <span class="st">"year5wt"</span>,</span></span>
 <span class="r-in"><span>               grp_cols <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"LLTwoDisruption"</span>, <span class="st">"Q_A"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>               metric <span class="op">=</span> <span class="st">"proportion"</span><span class="op">)</span></span></span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in svy_df %&gt;% dplyr::filter(dplyr::if_all(dplyr::all_of(grp_cols),     ~!is.na(.))):</span> could not find function "%&gt;%"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 4 × 7</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># Groups:   group_level [2]</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   group_level variable_level count value variable metric     group          </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>          </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span> 0           1                100 0.286 Q_A      proportion LLTwoDisruption</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">2</span> 0           2                250 0.714 Q_A      proportion LLTwoDisruption</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">3</span> 1           1                250 0.625 Q_A      proportion LLTwoDisruption</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">4</span> 1           2                150 0.375 Q_A      proportion LLTwoDisruption</span>
 <span class="r-in"><span><span class="fu">calc_summarize</span><span class="op">(</span><span class="va">d</span>, var <span class="op">=</span> <span class="st">"LLLost"</span>, wt_var <span class="op">=</span> <span class="st">"year5wt"</span>,</span></span>
 <span class="r-in"><span>               grp_cols <span class="op">=</span> <span class="st">"LLTwoDisruption"</span>, metric <span class="op">=</span> <span class="st">"mean"</span><span class="op">)</span></span></span>
-<span class="r-err co"><span class="r-pr">#&gt;</span> <span class="error">Error in svy_df %&gt;% dplyr::filter(dplyr::if_all(dplyr::all_of(grp_cols),     ~!is.na(.))):</span> could not find function "%&gt;%"</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #949494;"># A tibble: 1 × 5</span></span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   count value variable metric group   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>   </span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> <span style="color: #BCBCBC;">1</span>   750   0.6 LLLost   mean   National</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

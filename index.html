@@ -36,6 +36,7 @@
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
   <ul class="dropdown-menu" aria-labelledby="dropdown-articles">
 <li><a class="dropdown-item" href="articles/before-and-after.html">Cleaning NTIS Data: Before and After ntistools</a></li>
+    <li><a class="dropdown-item" href="articles/survey-statistics.html">Weighted Survey Statistics with ntistools</a></li>
   </ul>
 </li>
       </ul>
@@ -72,7 +73,7 @@
 <div class="section level2">
 <h2 id="functions">Functions<a class="anchor" aria-label="anchor" href="#functions"></a>
 </h2>
-<p>ntistools exports 10 functions organized into four categories:</p>
+<p>ntistools exports 18 functions organized into six categories:</p>
 <div class="section level3">
 <h3 id="recode-and-collapse">Recode and collapse<a class="anchor" aria-label="anchor" href="#recode-and-collapse"></a>
 </h3>
@@ -175,6 +176,72 @@
 <td><code><a href="reference/apply_filter.html">apply_filter()</a></code></td>
 <td>Set variables to NA for respondents who don’t meet a condition</td>
 </tr>
+<tr>
+<td><code><a href="reference/replace_over_one_with_na.html">replace_over_one_with_na()</a></code></td>
+<td>Replace proportion values greater than 1 with <code>NA</code>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="weighted-summaries">Weighted summaries<a class="anchor" aria-label="anchor" href="#weighted-summaries"></a>
+</h3>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/calc_summarize.html">calc_summarize()</a></code></td>
+<td>Weighted proportion / mean / median for one variable, optionally by a group</td>
+</tr>
+<tr>
+<td><code><a href="reference/summarize_by_groups.html">summarize_by_groups()</a></code></td>
+<td>Run <code><a href="reference/calc_summarize.html">calc_summarize()</a></code> over many <code>variable = metric</code> pairs and stack the results</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section level3">
+<h3 id="weighted-survey-statistics">Weighted survey statistics<a class="anchor" aria-label="anchor" href="#weighted-survey-statistics"></a>
+</h3>
+<p>Optional dependencies on <code>survey</code>, <code>srvyr</code>, and (for pairwise contrasts) <code>emmeans</code> — loaded lazily, with a clear install hint if missing.</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr>
+<th>Function</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr>
+<td><code><a href="reference/survey_ci.html">survey_ci()</a></code></td>
+<td>Weighted means with confidence intervals across many variables</td>
+</tr>
+<tr>
+<td><code><a href="reference/survey_chisq.html">survey_chisq()</a></code></td>
+<td>Weighted chi-square tests for many variable pairs</td>
+</tr>
+<tr>
+<td><code><a href="reference/survey_ttest.html">survey_ttest()</a></code></td>
+<td>Weighted t-tests of several outcomes against a binary group</td>
+</tr>
+<tr>
+<td><code><a href="reference/survey_anova.html">survey_anova()</a></code></td>
+<td>Weighted ANOVA via <code>svyglm</code> + optional <code>emmeans</code> pairwise contrasts</td>
+</tr>
+<tr>
+<td><code><a href="reference/run_survey_stats.html">run_survey_stats()</a></code></td>
+<td>Bulk-run all four from spec data frames and optionally write CSVs</td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -203,7 +270,7 @@
 <span>                   parent_var <span class="op">=</span> <span class="st">"Regulations"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="reference/apply_filter.html">apply_filter</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"StaffVacancies"</span>, <span class="st">"BenefitsImpact"</span><span class="op">)</span>,</span>
 <span>               condition <span class="op">=</span> <span class="va">HaveStaff</span> <span class="op">==</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<p>See <code><a href="articles/before-and-after.html">vignette("before-and-after")</a></code> for side-by-side comparisons of verbose <code><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when()</a></code> code and the equivalent ntistools calls.</p>
+<p>See <code><a href="articles/before-and-after.html">vignette("before-and-after")</a></code> for side-by-side comparisons of verbose <code><a href="https://dplyr.tidyverse.org/reference/case-and-replace-when.html" class="external-link">case_when()</a></code> code and the equivalent ntistools calls, and <code><a href="articles/survey-statistics.html">vignette("survey-statistics")</a></code> for a walkthrough of the weighted-inference functions (CIs, chi-square, t-tests, ANOVA, and the <code><a href="reference/run_survey_stats.html">run_survey_stats()</a></code> bulk runner).</p>
 </div>
 <div class="section level2">
 <h2 id="ntis-sentinel-value-conventions">NTIS sentinel value conventions<a class="anchor" aria-label="anchor" href="#ntis-sentinel-value-conventions"></a>
