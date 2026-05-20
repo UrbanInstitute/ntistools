@@ -6,11 +6,12 @@
 \alias{ntistools-package}
 \title{ntistools: Tools for Analyzing Nonprofit Trends and Impacts Survey Data}
 \description{
-Reusable functions for wrangling, analyzing, and visualizing Nonprofit Trends and Impacts Survey (NTIS) data. This package is for internal use only and does not contain any raw survey data or PII.
+Reusable functions for wrangling, analyzing, and visualizing Nonprofit Trends and Impacts Survey (NTIS) data. This package does not contain any raw survey data or PII.
 }
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://urbaninstitute.github.io/ntistools/}
   \item \url{https://github.com/UrbanInstitute/ntistools}
   \item Report bugs at \url{https://github.com/UrbanInstitute/ntistools/issues}
 }
