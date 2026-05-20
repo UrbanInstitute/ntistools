@@ -7,3 +7,5 @@
 ^pkgdown$
 ^CLAUDE\.md$
 ^prompts$
+^\.claude$
+^integration_task\.md$

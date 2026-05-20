@@ -29,7 +29,7 @@ remotes::install_github("UrbanInstitute/ntistools")
 
 ## Functions
 
-ntistools exports 10 functions organized into four categories:
+ntistools exports 18 functions organized into six categories:
 
 ### Recode and collapse
 
@@ -60,6 +60,27 @@ ntistools exports 10 functions organized into four categories:
 | `impute_from_flag()` | Replace NA with a value when a companion flag column indicates a valid skip |
 | `propagate_parent()` | Push a parent question's value (e.g., 0 or 97) to all child columns |
 | `apply_filter()` | Set variables to NA for respondents who don't meet a condition |
+| `replace_over_one_with_na()` | Replace proportion values greater than 1 with `NA` |
+
+### Weighted summaries
+
+| Function | Description |
+|---|---|
+| `calc_summarize()` | Weighted proportion / mean / median for one variable, optionally by a group |
+| `summarize_by_groups()` | Run `calc_summarize()` over many `variable = metric` pairs and stack the results |
+
+### Weighted survey statistics
+
+Optional dependencies on `survey`, `srvyr`, and (for pairwise contrasts)
+`emmeans` — loaded lazily, with a clear install hint if missing.
+
+| Function | Description |
+|---|---|
+| `survey_ci()` | Weighted means with confidence intervals across many variables |
+| `survey_chisq()` | Weighted chi-square tests for many variable pairs |
+| `survey_ttest()` | Weighted t-tests of several outcomes against a binary group |
+| `survey_anova()` | Weighted ANOVA via `svyglm` + optional `emmeans` pairwise contrasts |
+| `run_survey_stats()` | Bulk-run all four from spec data frames and optionally write CSVs |
 
 ## Usage
 
@@ -87,7 +108,10 @@ cleaned <- raw_survey |>
 ```
 
 See `vignette("before-and-after")` for side-by-side comparisons of verbose
-`case_when()` code and the equivalent ntistools calls.
+`case_when()` code and the equivalent ntistools calls, and
+`vignette("survey-statistics")` for a walkthrough of the weighted-inference
+functions (CIs, chi-square, t-tests, ANOVA, and the `run_survey_stats()`
+bulk runner).
 
 ## NTIS sentinel value conventions
 
