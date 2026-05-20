@@ -43,3 +43,12 @@ reference:
     contents:
       - calc_summarize
       - summarize_by_groups
+
+  - title: "Survey statistics"
+    desc: "Weighted inference (CIs, chi-square, t-tests, ANOVA) and bulk runner."
+    contents:
+      - survey_ci
+      - survey_chisq
+      - survey_ttest
+      - survey_anova
+      - run_survey_stats

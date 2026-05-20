@@ -40,7 +40,7 @@ Standard R package layout using `roxygen2` workflow:
 - **_pkgdown.yml**: pkgdown site config. Site auto-deploys to gh-pages on push to main.
 - **.github/workflows/**: GitHub Actions for pkgdown deployment.
 
-## Exported Functions (13)
+## Exported Functions (18)
 
 | Function | Purpose |
 |---|---|
@@ -57,6 +57,19 @@ Standard R package layout using `roxygen2` workflow:
 | `replace_over_one_with_na` | Replace values > 1 with NA (proportion cleanup) |
 | `calc_summarize` | Weighted proportion / mean / median per group |
 | `summarize_by_groups` | Run `calc_summarize` over many `var = metric` pairs |
+| `survey_ci` | Weighted means with confidence intervals (srvyr) |
+| `survey_chisq` | Weighted chi-square tests over variable pairs (survey) |
+| `survey_ttest` | Weighted t-tests across multiple outcomes (survey) |
+| `survey_anova` | Weighted ANOVA via svyglm + optional emmeans pairwise |
+| `run_survey_stats` | Bulk-run all four stat types from spec data frames; write CSVs |
+
+## Optional Dependencies
+
+The four `survey_*` functions and `run_survey_stats` depend on the `survey`,
+`srvyr`, and (optionally for pairwise contrasts) `emmeans` packages. These are
+listed in `Suggests` and loaded lazily via `requireNamespace()`; users get a
+clear install hint if a function is called without the relevant package
+present.
 
 ## Key Conventions
 
